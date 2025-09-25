@@ -1,49 +1,29 @@
-# Метод 3: Демонстрация через чистый PowerShell и .NET
-function Show-ProcessInjectionConcepts {
-    Write-Host "=== КОНЦЕПЦИИ PROCESS INJECTION ===" -ForegroundColor Cyan
-    
-    # 1. Демонстрация работы с процессами
-    Write-Host "`n1. РАБОТА С ПРОЦЕССАМИ:" -ForegroundColor Yellow
-    $processes = Get-Process | Where-Object { $_.ProcessName -eq 'notepad' -or $_.ProcessName -eq 'calculator' }
-    
-    if ($processes) {
-        foreach ($proc in $processes) {
-            Write-Host "   Процесс: $($proc.ProcessName), PID: $($proc.Id), HandleCount: $($proc.HandleCount)" -ForegroundColor Gray
-        }
-    } else {
-        Write-Host "   Запустите notepad или calc для демонстрации" -ForegroundColor Gray
-    }
-    
-    # 2. Демонстрация того, что видит EDR
-    Write-Host "`n2. КАК EDR ДЕТЕКТИРУЕТ INJECTION:" -ForegroundColor Red
-    $triggers = @(
-        "Sequence: OpenProcess → VirtualAllocEx → WriteProcessMemory → CreateRemoteThread",
-        "PowerShell accessing lsass.exe memory",
-        "Unusual parent-child: msoffice → powershell → notepad",
-        "Process hollowing (замена легитимного EXE в памяти)",
-        "API hooking detection"
-    )
-    
-    for ($i = 0; $i -lt $triggers.Count; $i++) {
-        Write-Host "   $($i+1). $($triggers[$i])" -ForegroundColor Yellow
-    }
-    
-    # 3. Пример безопасного кода, который НЕ триггерит EDR
-    Write-Host "`n3. БЕЗОПАСНЫЕ ОПЕРАЦИИ:" -ForegroundColor Green
+# Используем легитимные .NET методы для демонстрации
+function Show-ReflectionDemo {
     try {
-        # Безопасные вызовы
-        $currentPid = $PID
-        $processName = (Get-Process -Id $PID).ProcessName
-        Write-Host "   Текущий PID: $currentPid, Имя: $processName" -ForegroundColor Gray
+        Write-Host "=== ДЕМОНСТРАЦИЯ ЧЕРЕЗ .NET REFLECTION ===" -ForegroundColor Cyan
         
-        # Работа с собственной памятью процесса - безопасно
-        $memoryDemo = [System.Text.Encoding]::ASCII.GetBytes("Safe memory operation")
-        Write-Host "   Работа с собственной памятью: OK" -ForegroundColor Gray
+        # Безопасные операции с процессами
+        $currentProcess = [System.Diagnostics.Process]::GetCurrentProcess()
+        Write-Host "[+] Текущий процесс: $($currentProcess.ProcessName)" -ForegroundColor Green
+        Write-Host "[+] PID: $($currentProcess.Id)" -ForegroundColor Green
+        Write-Host "[+] Память: $([math]::Round($currentProcess.WorkingSet64/1MB, 2)) MB" -ForegroundColor Green
+        
+        # Демонстрация работы с assembly (безопасно)
+        $assemblies = [System.AppDomain]::CurrentDomain.GetAssemblies() | 
+                     Where-Object { $_.FullName -like "System*" } | 
+                     Select-Object -First 3 FullName
+                     
+        Write-Host "`n[+] Загруженные System assemblies:" -ForegroundColor Yellow
+        foreach ($asm in $assemblies) {
+            Write-Host "    - $($asm.FullName)" -ForegroundColor Gray
+        }
+        
+        Write-Host "`n[!] Это безопасные операции - Касперский не блокирует" -ForegroundColor Green
         
     } catch {
-        Write-Host "   Ошибка: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[ОШИБКА] $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
-# Запускаем
-Show-ProcessInjectionConcepts
+Show-ReflectionDemo
