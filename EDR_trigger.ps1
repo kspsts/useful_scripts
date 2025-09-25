@@ -1,7 +1,5 @@
-# Educational Process Injection Example
-# WARNING: For research purposes only!
-
-Add-Type -TypeDefinition @"
+# Сначала определяем тип отдельно
+$TypeDefinition = @"
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -37,15 +35,23 @@ public class InjectionDemo
 }
 "@
 
+# Загружаем тип
+Add-Type -TypeDefinition $TypeDefinition -Language CSharp
+
 function Start-InjectionDemo {
     param(
-        [string]$TargetProcessName = "notepad"  # Безопасный процесс для демонстрации
+        [string]$TargetProcessName = "notepad"
     )
     
     try {
         Write-Host "[+] Поиск процесса: $TargetProcessName" -ForegroundColor Yellow
         
-        # Находим целевой процесс (безопасный для демонстрации)
+        # Запускаем notepad если его нет
+        if (-not (Get-Process -Name $TargetProcessName -ErrorAction SilentlyContinue)) {
+            Start-Process $TargetProcessName -WindowStyle Minimized
+            Start-Sleep -Seconds 2
+        }
+        
         $targetProcess = Get-Process -Name $TargetProcessName -ErrorAction Stop | Select-Object -First 1
         Write-Host "[+] Найден процесс: $($targetProcess.ProcessName) (PID: $($targetProcess.Id))" -ForegroundColor Green
         
@@ -65,8 +71,7 @@ function Start-InjectionDemo {
         }
         Write-Host "[+] Handle успешно открыт: $hProcess" -ForegroundColor Green
         
-        # Демонстрационный payload (простая заглушка)
-        # В реальной атаке здесь был бы шеллкод
+        # Демонстрационный payload
         $demoPayload = [System.Text.Encoding]::ASCII.GetBytes("DEMO_PAYLOAD")
         
         # Выделяем память в целевом процессе
@@ -101,17 +106,14 @@ function Start-InjectionDemo {
         Write-Host "[+] Данные записаны успешно ($bytesWritten байт)" -ForegroundColor Green
         
         Write-Host "[!] ДЕМОНСТРАЦИЯ ЗАВЕРШЕНА" -ForegroundColor Cyan
-        Write-Host "[!] EDR сработал бы на реальные вызовы CreateRemoteThread с шеллкодом" -ForegroundColor Red
+        Write-Host "[!] EDR сработал бы на реальные вызовы CreateRemoteThread" -ForegroundColor Red
         
     }
     catch {
         Write-Host "[ОШИБКА] $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[ДЕТАЛИ] $($_.Exception.StackTrace)" -ForegroundColor Yellow
     }
 }
-
-# Запускаем безопасный процесс для демонстрации
-Start-Process notepad -WindowStyle Minimized
-Start-Sleep -Seconds 2
 
 # Запускаем демонстрацию
 Start-InjectionDemo -TargetProcessName "notepad"
