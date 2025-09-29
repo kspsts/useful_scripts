@@ -1,14 +1,16 @@
-# gpo_audit.ps1 (обновлённая версия)
+# gpo_audit.ps1 — селективный аудит HTM-выгрузок GPO (PS 5.1)
 
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory)]
-  [string]$Path,
+  [Parameter(Mandatory)] [string]$Path,
   [string]$Out = "gpo_audit",
-  [ValidateSet('Table','Csv','Md')]
-  [string]$Format = 'Table',
-  [switch]$OnlyIssues,
-  [switch]$ShowFullPath
+  [ValidateSet('Table','Csv','Md')] [string]$Format = 'Table',
+
+  [switch]$OnlyIssues,        # выводить только проблемы (Не ОК)
+  [switch]$IncludeNotFound,   # включать "Не найдено" (по умолчанию скрыто)
+  [switch]$ShowFullPath,      # показывать полный путь файла
+  [switch]$ScanAll,           # сканировать все правила для всех файлов (отключает селективный режим)
+  [switch]$SummaryPerRule     # печатать сводку по правилам (и файлам с проблемами)
 )
 
 function Remove-Html {
@@ -36,7 +38,7 @@ function New-Result {
   }
 }
 
-# --- Правила (как в прошлой версии, без изменений) ---
+# -------------------- Правила --------------------
 $Rules = @(
   @{ Id='NTLM.Outbound.Restrict'; Category='Аутентификация'; Severity='High';
      Title='Сетевая безопасность: ограничения NTLM: исходящий трафик NTLM к удаленным серверам';
@@ -129,6 +131,7 @@ $Rules = @(
   }
 )
 
+# -------------------- Сканирование --------------------
 $files = Get-ChildItem -Path $Path -Filter *.htm* -Recurse -ErrorAction Stop
 if(-not $files){ Write-Error "HTM файлы не найдены в $Path"; exit 1 }
 
@@ -139,18 +142,32 @@ foreach($f in $files){
   $txt = Remove-Html -Html $raw
   $displayName = if($ShowFullPath){ $f.FullName } else { $f.Name }
 
-  foreach($rule in $Rules){
+  # селективный выбор правил для файла
+  $applicable = @()
+  if($ScanAll){
+    $applicable = $Rules
+  } else {
+    foreach($rule in $Rules){
+      $hit = $false
+      foreach($pat in $rule.Patterns){
+        if([regex]::IsMatch($txt, $pat, 'IgnoreCase')){ $hit = $true; break }
+      }
+      if($hit){ $applicable += $rule }
+    }
+  }
+  if(-not $applicable -or $applicable.Count -eq 0){ continue }
+
+  foreach($rule in $applicable){
     $found = $null
     foreach($pat in $rule.Patterns){
       $m = [regex]::Match($txt, $pat, 'IgnoreCase')
-      if($m.Success){
-        $found = if($m.Groups.Count -gt 1){ $m.Groups[1].Value } else { $m.Value }
-        break
-      }
+      if($m.Success){ $found = if($m.Groups.Count -gt 1){ $m.Groups[1].Value } else { $m.Value }; break }
     }
 
-    if($null -eq $found){
-      $results += New-Result -File $f.FullName -Rule $rule -Status 'Не найдено' -FoundValue '' -Note 'Параметр не обнаружен' -DisplayName $displayName
+    if([string]::IsNullOrWhiteSpace($found)){
+      if($IncludeNotFound){
+        $results += New-Result -File $f.FullName -Rule $rule -Status 'Не найдено' -FoundValue '' -Note 'Параметр не обнаружен' -DisplayName $displayName
+      }
       continue
     }
 
@@ -160,18 +177,19 @@ foreach($f in $files){
     foreach($d in $desired){ if($norm -like "*$d*"){ $ok = $true; break } }
 
     $status = if($ok){ 'OK' } else { 'Не ОК' }
+    if($OnlyIssues -and $status -eq 'OK'){ continue }
+
     $note = if($ok){ '' } else { 'Значение отличается от рекомендуемого' }
     $results += New-Result -File $f.FullName -Rule $rule -Status $status -FoundValue $found -Note $note -DisplayName $displayName
   }
 }
 
-if($OnlyIssues){
-  $results = $results | Where-Object { $_.Status -ne 'OK' }
-}
+# -------------------- Вывод --------------------
+if(-not $results){ Write-Host "Проблем не обнаружено (по выбранным правилам/файлам)." -ForegroundColor Green; return }
 
 switch($Format){
   'Table' {
-    $results | Sort-Object File, Severity, Category, Title |
+    $results | Sort-Object Severity, Category, Title, File |
       Format-Table File,Category,Title,Desired,Found,Status,Severity -AutoSize
   }
   'Csv' {
@@ -181,27 +199,36 @@ switch($Format){
   }
   'Md' {
     $md = Join-Path (Resolve-Path .) "$Out.md"
-    "# GPO Audit Report`n`nДата: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n`n" | Out-File -FilePath $md -Encoding UTF8
+    "# GPO Audit Report`n`nДата: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n" | Out-File -FilePath $md -Encoding UTF8
 
-    $byFile = $results | Sort-Object File, Severity, Category | Group-Object File
-    "## Индекс по файлам`n" | Out-File -FilePath $md -Append -Encoding UTF8
-    foreach($g in $byFile){
-      $ok = ($g.Group | Where-Object Status -eq 'OK').Count
-      $bad = ($g.Group | Where-Object Status -eq 'Не ОК').Count
-      $miss = ($g.Group | Where-Object Status -eq 'Не найдено').Count
-      "- [$($g.Name)](#$(($g.Name -replace '[^a-zA-Z0-9\-\. ]','' -replace ' ','-').ToLower())) — OK:$ok / Не ОК:$bad / Не найдено:$miss" |
-        Out-File -FilePath $md -Append -Encoding UTF8
-    }
-
-    foreach($g in $byFile){
-      "`n---`n" | Out-File -FilePath $md -Append -Encoding UTF8
-      "### $($g.Name)`n" | Out-File -FilePath $md -Append -Encoding UTF8
-      "| Категория | Параметр | Рекомендовано | Найдено | Статус | Критичность |" | Out-File -FilePath $md -Append -Encoding UTF8
-      "|---|---|---|---|---|---|" | Out-File -FilePath $md -Append -Encoding UTF8
-      foreach($r in $g.Group){
-        $st = if($r.Status -eq 'OK'){'✅ OK'} elseif($r.Status -eq 'Не ОК'){'❌ Не ОК'} else {'⚠️ Не найдено'}
-        "| $($r.Category) | $($r.Title) | $($r.Desired) | $($r.Found) | $st | $($r.Severity) |" |
+    if($SummaryPerRule){
+      "## Сводка по правилам`n" | Out-File -FilePath $md -Append -Encoding UTF8
+      $byRule = $results | Group-Object RuleId
+      foreach($g in $byRule){
+        $title = $g.Group[0].Title
+        $bad = ($g.Group | Where-Object Status -eq 'Не ОК')
+        $okc = ($g.Group | Where-Object Status -eq 'OK').Count
+        "### $title`n- OK: $okc; Не ОК: $($bad.Count)`n" | Out-File -FilePath $md -Append -Encoding UTF8
+        if($bad.Count -gt 0){
+          "| Файл | Найдено | Критичность | Рекомендация |`n|---|---|---|---|" | Out-File -FilePath $md -Append -Encoding UTF8
+          foreach($r in $bad){
+            "| $($r.File) | $($r.Found) | $($r.Severity) | $($r.Recommendation) |" | Out-File -FilePath $md -Append -Encoding UTF8
+          }
+          "`n" | Out-File -FilePath $md -Append -Encoding UTF8
+        }
+      }
+    } else {
+      "## По файлам`n" | Out-File -FilePath $md -Append -Encoding UTF8
+      $byFile = $results | Sort-Object File, Severity, Category | Group-Object File
+      foreach($g in $byFile){
+        "### $($g.Name)`n| Категория | Параметр | Рекомендовано | Найдено | Статус | Критичность |`n|---|---|---|---|---|---|" |
           Out-File -FilePath $md -Append -Encoding UTF8
+        foreach($r in $g.Group){
+          $st = if($r.Status -eq 'OK'){'✅ OK'} else {'❌ Не ОК'}
+          "| $($r.Category) | $($r.Title) | $($r.Desired) | $($r.Found) | $st | $($r.Severity) |" |
+            Out-File -FilePath $md -Append -Encoding UTF8
+        }
+        "`n" | Out-File -FilePath $md -Append -Encoding UTF8
       }
     }
     Write-Host "Markdown сохранён: $md" -ForegroundColor Green
