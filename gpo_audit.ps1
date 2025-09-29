@@ -752,57 +752,30 @@ if(-not $results){
 }
 
 switch($Format){
-  'Table' {
-    if($Pretty){
-      $out = $results
-      if(-not $IncludeNotFound){ $out = $out | Where-Object { $_.Status -ne 'Не найдено' } }
-      if($OnlyIssues){ $out = $out | Where-Object { $_.Status -eq 'Не ОК' } }
-      if($out){ Show-PrettyConsole -Items $out } else { Write-Host "Нет проблем для отображения." -ForegroundColor Green }
+'Table' {
+  if($Pretty){
+    # 1) Берём всё или только проблемы
+    $out = if($OnlyIssues){
+      $results | Where-Object { $_.Status -ne 'OK' }   # всё, что не OK — проблема
     } else {
-      $results | Sort-Object Severity, Category, Title, File |
-        Format-Table File,Category,Title,Desired,Found,Status,Severity -AutoSize
+      $results
     }
-  }
-  'Csv' {
-    $csv = Join-Path (Resolve-Path .) "$Out.csv"
-    $results | Sort-Object FilePath, RuleId | Export-Csv -Path $csv -NoTypeInformation -Encoding UTF8
-    Write-Host "CSV сохранён: $csv" -ForegroundColor Green
-  }
-  'Md' {
-    $md = Join-Path (Resolve-Path .) "$Out.md"
-    "# GPO Audit Report`n`nДата: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n" | Out-File -FilePath $md -Encoding UTF8
 
-    if($SummaryPerRule){
-      "## Сводка по правилам`n" | Out-File -FilePath $md -Append -Encoding UTF8
-      $byRule = $results | Group-Object RuleId
-      foreach($g in $byRule){
-        $title = $g.Group[0].Title
-        $bad = ($g.Group | Where-Object Status -eq 'Не ОК')
-        $okc = ($g.Group | Where-Object Status -eq 'OK').Count
-        "### $title`n- OK: $okc; Не ОК: $($bad.Count)`n" | Out-File -FilePath $md -Append -Encoding UTF8
-        if($bad.Count -gt 0){
-          "| Файл | Найдено | Критичность | Рекомендация / Шаги |`n|---|---|---|---|" | Out-File -FilePath $md -Append -Encoding UTF8
-          foreach($r in $bad){
-            "| $($r.File) | $($r.Found) | $($r.Severity) | $($r.Recommendation) — $($r.Fix) |" | Out-File -FilePath $md -Append -Encoding UTF8
-          }
-          "`n" | Out-File -FilePath $md -Append -Encoding UTF8
-        }
-      }
-    } else {
-      "## По файлам`n" | Out-File -FilePath $md -Append -Encoding UTF8
-      $byFile = $results | Sort-Object File, Severity, Category | Group-Object File
-      foreach($g in $byFile){
-        "### $($g.Name)`n| Категория | Параметр | Рекомендовано | Найдено | Статус | Критичность | Шаги исправления |`n|---|---|---|---|---|---|---|" |
-          Out-File -FilePath $md -Append -Encoding UTF8
-        foreach($r in $g.Group){
-          $st = if($r.Status -eq 'OK'){'✅ OK'} elseif($r.Status -eq 'Не ОК'){'❌ Не ОК'} else {'⚠️ Не найдено'}
-          "| $($r.Category) | $($r.Title) | $($r.Desired) | $($r.Found) | $st | $($r.Severity) | $($r.Fix) |" |
-            Out-File -FilePath $md -Append -Encoding UTF8
-        }
-        "`n" | Out-File -FilePath $md -Append -Encoding UTF8
-      }
+    # 2) По умолчанию скрываем "Не найдено"
+    if(-not $IncludeNotFound){
+      $out = $out | Where-Object { $_.Status -ne 'Не найдено' }
     }
-    Write-Host "Markdown сохранён: $md" -ForegroundColor Green
+
+    # 3) Печать
+    if($out -and $out.Count -gt 0){
+      Show-PrettyConsole -Items $out
+    } else {
+      Write-Host "Нет проблем для отображения." -ForegroundColor Green
+    }
+  }
+  else {
+    $results | Sort-Object Severity, Category, Title, File |
+      Format-Table File,Category,Title,Desired,Found,Status,Severity -AutoSize
   }
 }
 
