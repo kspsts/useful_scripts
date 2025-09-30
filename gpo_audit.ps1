@@ -57,27 +57,112 @@ function New-Result {
 }
 
 function Show-PrettyConsole {
-  param([array]$Items)
-  $byFile = $Items | Group-Object File
-  foreach($g in $byFile){
-    Write-Host ("`n=== {0} ===" -f $g.Name) -ForegroundColor Cyan
-    foreach($r in $g.Group){
-      $icon = '✅'; $col = 'Green'
-      if($r.Status -eq 'Не ОК'){ $icon='⛔'; $col='Red' }
-      elseif($r.Status -eq 'Не найдено'){ $icon='⚠️'; $col='Yellow' }
-      Write-Host ("$icon [$($r.Severity)] $($r.Category) — $($r.Title)") -ForegroundColor $col
-      if($r.Status -ne 'OK'){
-        if($r.Found){ Write-Host ("  Найдено:   {0}" -f $r.Found) -ForegroundColor $col }
-        if($r.Desired){ Write-Host ("  Ожидается: {0}" -f $r.Desired) -ForegroundColor $col }
-        if($r.Recommendation){ Write-Host ("  Рекомендация: {0}" -f $r.Recommendation) -ForegroundColor DarkYellow }
-        if($r.Fix){ Write-Host ("  Как исправить: {0}" -f $r.Fix) -ForegroundColor DarkYellow }
-      }
-      Write-Host ""
+  param(
+    [array]$Items,
+    [switch]$IncludeNotFound
+  )
+
+  if(-not $Items -or $Items.Count -eq 0){
+    Write-Host "Нет записей для отображения." -ForegroundColor Green
+    return
+  }
+
+  $severityWeight = @{ High = 0; Medium = 1; Low = 2; Info = 3 }
+  $statusWeight   = @{ 'Не ОК' = 0; 'Не найдено' = 1; 'OK' = 2 }
+
+  $sorted = $Items | Sort-Object \
+    @{ Expression = { if($statusWeight.ContainsKey($_.Status)){ $statusWeight[$_.Status] } else { 99 } } },\
+    @{ Expression = { if($severityWeight.ContainsKey($_.Severity)){ $severityWeight[$_.Severity] } else { 9 } } },\
+    'File','Category','Title'
+
+  $currentFile = $null
+  foreach($r in $sorted){
+    if($currentFile -ne $r.File){
+      Write-Host ("`n=== {0} ===" -f $r.File) -ForegroundColor Cyan
+      $currentFile = $r.File
     }
+
+    $icon = '✅'; $col = 'Green'; $state = '[OK]'
+    if($r.Status -eq 'Не ОК'){
+      $icon = '⛔'; $col = 'Red'; $state = '[ISSUE]'
+    }
+    elseif($r.Status -eq 'Не найдено'){
+      if(-not $IncludeNotFound){ continue }
+      $icon = '⚠️'; $col = 'Yellow'; $state = '[WARN]'
+    }
+
+    Write-Host ("$icon $state [$($r.Severity)] $($r.Category) — $($r.Title)") -ForegroundColor $col
+    Write-Host ("  Правило: $($r.RuleId)") -ForegroundColor DarkGray
+
+    if($r.Status -ne 'OK'){
+      if($r.Found){ Write-Host ("  Найдено:   {0}" -f $r.Found.Trim()) -ForegroundColor DarkGray }
+      if($r.Desired){ Write-Host ("  Ожидается: {0}" -f $r.Desired.Trim()) -ForegroundColor DarkGray }
+      if($r.Recommendation){ Write-Host ("  Рекомендация: {0}" -f $r.Recommendation) -ForegroundColor Magenta }
+      if($r.Fix){ Write-Host ("  Как исправить: {0}" -f $r.Fix) -ForegroundColor DarkYellow }
+      if($r.Note){ Write-Host ("  Примечание: {0}" -f $r.Note) -ForegroundColor DarkCyan }
+    }
+
+    if($r.Status -eq 'OK' -and $r.Note){
+      Write-Host ("  Примечание: {0}" -f $r.Note) -ForegroundColor DarkCyan
+    }
+
+    Write-Host ""
   }
 }
 
 function Get-FirstInt { param([string]$s) $m=[regex]::Match($s,'\d+'); if($m.Success){[int]$m.Value} else {$null} }
+
+function Resolve-ReportPath {
+  param(
+    [Parameter(Mandatory=$true)][string]$Base,
+    [Parameter(Mandatory=$true)][string]$Extension
+  )
+
+  $target = $Base
+  $ext = [System.IO.Path]::GetExtension($target)
+  if([string]::IsNullOrWhiteSpace($ext)){
+    $target = "$target.$Extension"
+  }
+  elseif($ext.TrimStart('.') -ne $Extension){
+    $target = [System.IO.Path]::ChangeExtension($target, $Extension)
+  }
+
+  if(-not [System.IO.Path]::IsPathRooted($target)){
+    $target = Join-Path -Path (Get-Location) -ChildPath $target
+  }
+
+  return [System.IO.Path]::GetFullPath($target)
+}
+
+function Select-OutputItems {
+  param(
+    [array]$Source,
+    [switch]$IncludeNotFound,
+    [switch]$OnlyIssues
+  )
+
+  if(-not $Source){ return @() }
+
+  $items = $Source
+  if($OnlyIssues){
+    $items = $items | Where-Object { $_.Status -ne 'OK' }
+  }
+  if(-not $IncludeNotFound){
+    $items = $items | Where-Object { $_.Status -ne 'Не найдено' }
+  }
+
+  return @($items)
+}
+
+function Escape-Markdown {
+  param([string]$Value)
+
+  if([string]::IsNullOrWhiteSpace($Value)){ return '' }
+
+  $escaped = $Value.Replace('|','\|')
+  $escaped = $escaped -replace "\r?\n", '<br>'
+  return $escaped.Trim()
+}
 
 # -------------------- Правила --------------------
 # Принцип: Patterns (RU/EN), Desired (или DesiredText), Normalize, опционально Compare, Fix, Profiles.
@@ -751,34 +836,116 @@ if(-not $results){
   return
 }
 
+$displayItems = Select-OutputItems -Source $results -IncludeNotFound:$IncludeNotFound -OnlyIssues:$OnlyIssues
+
 switch($Format){
 'Table' {
   if($Pretty){
-    # 1) Берём всё или только проблемы
-    $out = if($OnlyIssues){
-      $results | Where-Object { $_.Status -ne 'OK' }   # всё, что не OK — проблема
+    if($displayItems -and $displayItems.Count -gt 0){
+      Show-PrettyConsole -Items $displayItems -IncludeNotFound:$IncludeNotFound
     } else {
-      $results
-    }
-
-    # 2) По умолчанию скрываем "Не найдено"
-    if(-not $IncludeNotFound){
-      $out = $out | Where-Object { $_.Status -ne 'Не найдено' }
-    }
-
-    # 3) Печать
-    if($out -and $out.Count -gt 0){
-      Show-PrettyConsole -Items $out
-    } else {
-      Write-Host "Нет проблем для отображения." -ForegroundColor Green
+      Write-Host "Нет записей после применения фильтров." -ForegroundColor Green
     }
   }
   else {
-    $results | Sort-Object Severity, Category, Title, File |
-      Format-Table File,Category,Title,Desired,Found,Status,Severity -AutoSize
+    if($displayItems -and $displayItems.Count -gt 0){
+      $displayItems | Sort-Object Severity, Category, Title, File |
+        Format-Table File,Category,Title,Desired,Found,Status,Severity -AutoSize
+    } else {
+      Write-Host "Нет данных для табличного вывода (проверьте фильтры)." -ForegroundColor Yellow
+    }
   }
+}
+'Csv' {
+  $csvItems = Select-OutputItems -Source $results -IncludeNotFound:$IncludeNotFound -OnlyIssues:$OnlyIssues
+  if($csvItems -and $csvItems.Count -gt 0){
+    $csvPath = Resolve-ReportPath -Base $Out -Extension 'csv'
+    try {
+      $csvItems | Export-Csv -NoTypeInformation -Encoding UTF8 -Path $csvPath
+      Write-Host ("CSV отчёт сохранён: {0}" -f $csvPath) -ForegroundColor Cyan
+    }
+    catch {
+      Write-Error ("Не удалось сохранить CSV отчёт: {0}" -f $_.Exception.Message)
+    }
+  } else {
+    Write-Host "Нет записей для экспорта в CSV (все фильтры отсеяли данные)." -ForegroundColor Yellow
+  }
+}
+'Md' {
+  $mdItems = Select-OutputItems -Source $results -IncludeNotFound:$IncludeNotFound -OnlyIssues:$OnlyIssues
+  if(-not $mdItems -or $mdItems.Count -eq 0){
+    Write-Host "Нет записей для Markdown отчёта (все фильтры отсеяли данные)." -ForegroundColor Yellow
+    break
+  }
+
+  $mdPath = Resolve-ReportPath -Base $Out -Extension 'md'
+  $sb = New-Object System.Text.StringBuilder
+  $generatedAt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+
+  [void]$sb.AppendLine('# Отчёт по аудиту GPO')
+  [void]$sb.AppendLine('')
+  [void]$sb.AppendLine("Сгенерировано: $generatedAt")
+  [void]$sb.AppendLine('')
+
+  $issueItems = $mdItems | Where-Object { $_.Status -ne 'OK' }
+  if($issueItems -and $issueItems.Count -gt 0){
+    [void]$sb.AppendLine('## Предупреждения и рекомендации')
+    foreach($item in ($issueItems | Sort-Object Severity, Category, Title, File)){
+      $file = Escape-Markdown $item.File
+      $title = Escape-Markdown $item.Title
+      $rule = Escape-Markdown $item.RuleId
+      [void]$sb.AppendLine( ("- **{0}** [{1}] `{2}` — {3}" -f $item.Status, $item.Severity, $rule, $title) )
+      [void]$sb.AppendLine( ("  - Файл: {0}" -f $file) )
+      if($item.Found){ [void]$sb.AppendLine( ("  - Найдено: {0}" -f (Escape-Markdown $item.Found)) ) }
+      if($item.Desired){ [void]$sb.AppendLine( ("  - Ожидается: {0}" -f (Escape-Markdown $item.Desired)) ) }
+      if($item.Recommendation){ [void]$sb.AppendLine( ("  - Рекомендация: {0}" -f (Escape-Markdown $item.Recommendation)) ) }
+      if($item.Fix){ [void]$sb.AppendLine( ("  - Как исправить: {0}" -f (Escape-Markdown $item.Fix)) ) }
+      if($item.Note){ [void]$sb.AppendLine( ("  - Примечание: {0}" -f (Escape-Markdown $item.Note)) ) }
+    }
+  }
+  else {
+    [void]$sb.AppendLine('## Предупреждения и рекомендации')
+    [void]$sb.AppendLine('- Нет выявленных проблем.')
+  }
+
+  [void]$sb.AppendLine('')
+  [void]$sb.AppendLine('## Детальный список')
+  [void]$sb.AppendLine('| Файл | Категория | Правило | Заголовок | Статус | Срочность | Найдено | Ожидается | Рекомендация | Исправление |')
+  [void]$sb.AppendLine('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |')
+  foreach($item in ($mdItems | Sort-Object Severity, Category, Title, File)){
+    $row = "| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} |" -f \
+      (Escape-Markdown $item.File),\
+      (Escape-Markdown $item.Category),\
+      (Escape-Markdown $item.RuleId),\
+      (Escape-Markdown $item.Title),\
+      (Escape-Markdown $item.Status),\
+      (Escape-Markdown $item.Severity),\
+      (Escape-Markdown $item.Found),\
+      (Escape-Markdown $item.Desired),\
+      (Escape-Markdown $item.Recommendation),\
+      (Escape-Markdown $item.Fix)
+    [void]$sb.AppendLine($row)
+  }
+
+  if($SummaryPerRule){
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('## Сводка по правилам')
+    foreach($group in ($mdItems | Group-Object RuleId | Sort-Object Name)){
+      $sample = $group.Group | Select-Object -First 1
+      $statusStats = ($group.Group | Group-Object Status | ForEach-Object { "{0}: {1}" -f $_.Name,$_.Count }) -join ', '
+      [void]$sb.AppendLine( ("- `{0}` — {1} ({2})" -f $group.Name, (Escape-Markdown $sample.Title), $statusStats) )
+    }
+  }
+
+  try {
+    $sb.ToString() | Set-Content -Path $mdPath -Encoding UTF8
+    Write-Host ("Markdown отчёт сохранён: {0}" -f $mdPath) -ForegroundColor Cyan
+  }
+  catch {
+    Write-Error ("Не удалось сохранить Markdown отчёт: {0}" -f $_.Exception.Message)
+  }
+}
 }
 
 $counts = $results | Group-Object Status | Select-Object Name,Count
 Write-Host ("Итог: {0}" -f (($counts | ForEach-Object { "$($_.Name): $($_.Count)" }) -join '; ')) -ForegroundColor Cyan
-
