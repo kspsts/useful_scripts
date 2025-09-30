@@ -47,7 +47,7 @@ function New-Result {
     Category        = $Rule.Category
     Title           = $Rule.Title
     Desired         = if($Rule.PSObject.Properties.Name -contains 'DesiredText' -and $Rule.DesiredText){ $Rule.DesiredText } else { ($Rule.Desired -join ' | ') }
-    Found           = $FoundValue
+    Found           = if($FoundValue -and $FoundValue.Length -gt 400){ ($FoundValue.Substring(0,400).Trim() + ' …') } else { $FoundValue }
     Status          = $Status
     Severity        = $Rule.Severity
     Recommendation  = $Rule.Recommendation
@@ -281,8 +281,12 @@ $Rules = @(
      Fix='Отключить компонент «SMB 1.0/CIFS», проверить реестр: HKLM\SYSTEM\CCS\Services\LanmanServer\Parameters\SMB1=0.'
      Compare={
        param($found)
-       $norm = ($found -replace '\s+',' ').ToLowerInvariant()
-       return ($norm -match '\b0x0\b' -or $norm -match '\b0\b' -or $norm -match 'disabled' -or $norm -match 'отключ')
+       $norm = ($found -replace '\s+',' ').Trim().ToLowerInvariant()
+       if($norm -match '(?<![0-9a-z])0x0(?![0-9a-z])'){ return $true }
+       if($norm -match '(?<![0-9a-z])0(?![0-9a-z])'){ return $true }
+       if($norm -match 'disabled'){ return $true }
+       if($norm -match 'отключ'){ return $true }
+       return $false
      }
   },
   @{ Id='Anonymous.SAM'; Category='Security Options'; Severity='High'; Profiles=@('Base')
@@ -551,7 +555,15 @@ $Rules = @(
      Normalize={ param($s) $s }
      Recommendation='Указать явный список доверенных принт-серверов.'
      Fix='ПК → Адм. шаблоны → Принтеры → «Package Point and Print – Approved servers».'
-     Compare={ param($found) -not [string]::IsNullOrWhiteSpace(($found -replace 'Disabled|Отключено','').Trim()) }
+     Compare={
+       param($found)
+       $clean = ($found -replace '\s+',' ').Trim()
+       if($clean -match '(?i)enter fully qualified server names\s*(?:separated by semicolons)?\s*([\w\d\.\\-]+(?:[;\s,]+[\w\d\.\\-]+)*)'){
+         $list = $matches[1].Trim(' ;,')
+         return (-not [string]::IsNullOrWhiteSpace($list))
+       }
+       return $false
+     }
   },
 
   # ======== LAPS ========
@@ -737,10 +749,10 @@ $Rules = @(
      )
      DesiredText='Успех (минимум), лучше Успех и Отказ'
      Desired=@()
-     Normalize={ param($s) ($s -replace '\s+',' ' -replace ',',' ') .ToLowerInvariant() }
+     Normalize={ param($s) ($s -replace '\s+',' ' -replace ',',' ').ToLowerInvariant() }
      Recommendation='Включить аудит запуска процессов.'
      Fix='ПК → Параметры безопасности → Локальная политика аудита → «Отслеживание процессов» → Успех (и Отказ).'
-     Compare={ param($found) $n=($found -replace '\s+',' ' -replace ',',' ') .ToLowerInvariant(); ($n -match 'успех' -or $n -match 'success') }
+     Compare={ param($found) $n=($found -replace '\s+',' ' -replace ',',' ').ToLowerInvariant(); ($n -match 'успех' -or $n -match 'success') }
   },
   @{ Id='Audit.PrivilegeUse'; Category='Аудит'; Severity='High'; Profiles=@('Base')
      Title='Аудит: использование привилегий'
@@ -750,10 +762,10 @@ $Rules = @(
      )
      DesiredText='Успех (минимум), лучше Успех и Отказ'
      Desired=@()
-     Normalize={ param($s) ($s -replace '\s+',' ' -replace ',',' ') .ToLowerInvariant() }
+     Normalize={ param($s) ($s -replace '\s+',' ' -replace ',',' ').ToLowerInvariant() }
      Recommendation='Аудит использования чувствительных привилегий.'
      Fix='ПК → Параметры безопасности → Локальная политика аудита → «Использование привилегий».'
-     Compare={ param($found) $n=($found -replace '\s+',' ' -replace ',',' ') .ToLowerInvariant(); ($n -match 'успех' -or $n -match 'success') }
+     Compare={ param($found) $n=($found -replace '\s+',' ' -replace ',',' ').ToLowerInvariant(); ($n -match 'успех' -or $n -match 'success') }
   }
 )
 
