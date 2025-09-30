@@ -1345,6 +1345,30 @@ foreach($f in $files){
           }
         }
       }
+      'Password.Complexity' {
+        if($found){
+          $norm = ($found -replace '\s+',' ').Trim().ToLowerInvariant()
+          $calcOk = ($norm -match 'enabled' -or $norm -match 'включ')
+        }
+      }
+      'Password.MinLength' {
+        if($found){
+          $val = Get-FirstInt $found
+          if($val -ne $null){ $calcOk = ($val -ge 14) }
+        }
+      }
+      'Password.History' {
+        if($found){
+          $val = Get-FirstInt $found
+          if($val -ne $null){ $calcOk = ($val -ge 24) }
+        }
+      }
+      'Password.Reversible' {
+        if($found){
+          $norm = ($found -replace '\s+',' ').Trim().ToLowerInvariant()
+          $calcOk = ($norm -match 'disabled' -or $norm -match 'отключ')
+        }
+      }
     }
 
     if([string]::IsNullOrWhiteSpace($found)){
