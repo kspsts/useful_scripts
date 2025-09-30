@@ -317,10 +317,16 @@ $Rules = @(
        'Do not store LAN Manager hash value on next password change\s*(Enabled|Disabled|Not Configured)',
        'Не сохранять значение хэша LAN Manager.*?\s*(Включено|Отключено|Не настроено|Не задано)'
      )
-     Desired=@('Enabled','Включено')
+     DesiredText='Enabled / Включено'
+     Desired=@()
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Не хранить LM-хэш паролей.'
      Fix='ПК → Параметры безопасности → «Do not store LAN Manager hash value…» → Enabled.'
+     Compare={
+       param($found)
+       $norm = ($found -replace '\s+',' ').Trim().ToLowerInvariant()
+       return ($norm -match 'enabled' -or $norm -match 'включ')
+     }
   },
 
   # ======== RDP ========
@@ -547,8 +553,8 @@ $Rules = @(
   @{ Id='Print.ApprovedServers'; Category='PrintNightmare'; Severity='High'; Profiles=@('Print')
      Title='Package Point and Print – Approved servers (список не пустой)'
      Patterns=@(
-       'Package Point and Print.*?Approved servers.*?Enter fully qualified server names(?: separated by semicolons)?\s*(.*?)\s*(?:Users can only|This setting|This policy|Policy|Setting|$)',
-       'Утверждённые серверы Point and Print.*?Введите полные доменные имена серверов\s*(.*?)\s*(?:Пользователи могут|Если этот параметр|Это параметр|$)'
+       'Package Point and Print.*?Approved servers.*?Enter fully qualified server names(?: separated by semicolons)?\s*([^\r\n]+)',
+       'Утверждённые серверы Point and Print.*?Введите полные доменные имена серверов\s*([^\r\n]+)'
      )
      DesiredText='Непустой список доверенных серверов'
      Desired=@()
@@ -559,7 +565,7 @@ $Rules = @(
        param($found)
        $clean = ($found -replace '\s+',' ').Trim(' ;,')
        if([string]::IsNullOrWhiteSpace($clean)){ return $false }
-       $items = $clean -split '[;\s]+' | Where-Object { $_ -match '[a-z0-9]' }
+       $items = $clean -split '[;\s,]+' | Where-Object { $_ -match '[a-z0-9]' }
        return ($items -and $items.Count -gt 0)
      }
   },
@@ -815,22 +821,41 @@ foreach($f in $files){
     switch($rule.Id){
       'Print.ApprovedServers' {
         $matches = [regex]::Matches($txt, 'Enter fully qualified server names(?: separated by semicolons)?\s*([^\r\n]+)', 'IgnoreCase')
+        if($matches.Count -eq 0){
+          $matches = [regex]::Matches($txt, 'Введите полные доменные имена серверов\s*([^\r\n]+)', 'IgnoreCase')
+        }
         if($matches.Count -gt 0){
-          $names = @()
+          $names = [System.Collections.Generic.List[string]]::new()
           foreach($mm in $matches){
-            $candidate = ($mm.Groups[1].Value -replace '\s+', ' ').Trim(' ;,')
-            if(-not [string]::IsNullOrWhiteSpace($candidate)){ $names += $candidate }
+            $segment = ($mm.Groups[1].Value -replace '\s+', ' ')
+            $segment = [regex]::Replace($segment, '(?i)(Users can only|This setting|This policy|Policy|Setting).*$', '')
+            $segment = $segment.Trim(' ;,')
+            if([string]::IsNullOrWhiteSpace($segment)){ continue }
+
+            $parts = $segment -split '[;\s,]+' | Where-Object { $_ -match '[a-z0-9]' }
+            foreach($part in $parts){
+              $value = $part.Trim()
+              if([string]::IsNullOrWhiteSpace($value)){ continue }
+              if(-not $names.Contains($value)){ $names.Add($value) }
+            }
           }
-          if($names.Count -gt 0){ $found = ($names -join '; ') }
+          if($names.Count -gt 0){
+            $unique = $names | Sort-Object -Unique
+            $found = ($unique -join '; ')
+          }
         }
       }
       'NoLMHash' {
         $mm = [regex]::Match($txt, 'Do not store LAN Manager hash value on next password change\s*(Enabled|Disabled|Not Configured)', 'IgnoreCase')
-        if($mm.Success){ $found = $mm.Groups[1].Value }
+        if($mm.Success){ $found = $mm.Groups[1].Value.Trim() }
+        else {
+          $mm = [regex]::Match($txt, 'Не сохранять значение хэша LAN Manager.*?\s*(Включено|Отключено|Не настроено|Не задано)', 'IgnoreCase')
+          if($mm.Success){ $found = $mm.Groups[1].Value.Trim() }
+        }
       }
       'SMBv1.Disable' {
         $mm = [regex]::Match($txt, 'Value name\s*SMB1\s*Value type\s*REG_DWORD\s*Value data\s*([0-9x ()]+)', 'IgnoreCase')
-        if($mm.Success){ $found = $mm.Groups[1].Value }
+        if($mm.Success){ $found = $mm.Groups[1].Value.Trim() }
       }
     }
 
