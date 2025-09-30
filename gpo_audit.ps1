@@ -558,7 +558,9 @@ $Rules = @(
      Compare={
        param($found)
        $clean = ($found -replace '\s+',' ').Trim(' ;,')
-       return (-not [string]::IsNullOrWhiteSpace($clean))
+       if([string]::IsNullOrWhiteSpace($clean)){ return $false }
+       $items = $clean -split '[;\s]+' | Where-Object { $_ -match '[a-z0-9]' }
+       return ($items -and $items.Count -gt 0)
      }
   },
 
@@ -807,6 +809,28 @@ foreach($f in $files){
       if($m.Success){
         $found = if($m.Groups.Count -gt 1){ $m.Groups[1].Value } else { $m.Value }
         break
+      }
+    }
+
+    switch($rule.Id){
+      'Print.ApprovedServers' {
+        $matches = [regex]::Matches($txt, 'Enter fully qualified server names(?: separated by semicolons)?\s*([^\r\n]+)', 'IgnoreCase')
+        if($matches.Count -gt 0){
+          $names = @()
+          foreach($mm in $matches){
+            $candidate = ($mm.Groups[1].Value -replace '\s+', ' ').Trim(' ;,')
+            if(-not [string]::IsNullOrWhiteSpace($candidate)){ $names += $candidate }
+          }
+          if($names.Count -gt 0){ $found = ($names -join '; ') }
+        }
+      }
+      'NoLMHash' {
+        $mm = [regex]::Match($txt, 'Do not store LAN Manager hash value on next password change\s*(Enabled|Disabled|Not Configured)', 'IgnoreCase')
+        if($mm.Success){ $found = $mm.Groups[1].Value }
+      }
+      'SMBv1.Disable' {
+        $mm = [regex]::Match($txt, 'Value name\s*SMB1\s*Value type\s*REG_DWORD\s*Value data\s*([0-9x ()]+)', 'IgnoreCase')
+        if($mm.Success){ $found = $mm.Groups[1].Value }
       }
     }
 
