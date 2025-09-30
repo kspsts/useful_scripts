@@ -311,6 +311,28 @@ $Rules = @(
      Recommendation='Запретить анонимное перечисление SAM и расшаренных ресурсов.'
      Fix='ПК → Параметры безопасности → соответствующий параметр → Enabled.'
   },
+  @{ Id='Anonymous.SIDName'; Category='Security Options'; Severity='High'; Profiles=@('Base')
+     Title='Network access: Allow anonymous SID/Name translation = Disabled'
+     Patterns=@(
+       'Network access:\s*Allow anonymous SID/Name translation\s*[:\-]\s*([^\r\n<]+)',
+       'Сетевой доступ:\s*разрешить анонимное преобразование SID/имен\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Disabled','Отключено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Запретить преобразование SID/Name для анонимных пользователей.'
+     Fix='ПК → Параметры безопасности → соответствующий параметр → Disabled.'
+  },
+  @{ Id='RPC.RestrictRemoteSAM'; Category='Security Options'; Severity='High'; Profiles=@('Base')
+     Title='Network access: Restrict clients allowed to make remote calls to SAM'
+     Patterns=@(
+       'Network access:\s*Restrict clients allowed to make remote calls to SAM\s*[:\-]\s*([^\r\n<]+)',
+       'Сетевой доступ:\s*ограничить клиентов, которым разрешено выполнять удалённые вызовы SAM\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить ограничение удалённых вызовов SAM (оставить только Administrators, Authenticated Users).'
+     Fix='ПК → Параметры безопасности → соответствующий параметр → Enabled и задать безопасный ACL.'
+  },
   @{ Id='NoLMHash'; Category='Security Options'; Severity='High'; Profiles=@('Base')
      Title='Network security: Do not store LAN Manager hash value on next password change'
      Patterns=@(
@@ -409,6 +431,88 @@ $Rules = @(
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Включить «Turn off Multicast Name Resolution».'
      Fix='ПК → Адм. шаблоны → Сеть → Клиент DNS → «Turn off Multicast Name Resolution» → Enabled.'
+  },
+  @{ Id='IPv6.SourceRouting'; Category='Сеть'; Severity='Medium'; Profiles=@('Base')
+     Title='IPv6: Source routing = Disabled'
+     Patterns=@(
+       'TCPIP\/Parameters\s*DisableIPSourceRouting\s*[:\-]\s*([0-9]+)',
+       'IPv6 source routing\s*[:\-]\s*([^\r\n<]+)'
+     )
+     DesiredText='Disable or value ≥ 2'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Отключить исходную маршрутизацию IPv6 (DisableIPSourceRouting=2).'
+     Fix='ПК → Адм. шаблоны → Сеть → IPv6 → отключить source routing / Registry DisableIPSourceRouting=2.'
+     Compare={
+       param($found)
+       $n = ($found -replace '\s+',' ').ToLowerInvariant()
+       if($n -match 'disabled' -or $n -match 'отключ'){ return $true }
+       $v = Get-FirstInt $found
+       return ($v -ge 2)
+     }
+  },
+  @{ Id='DNS.DnssecValidation'; Category='DNS'; Severity='Medium'; Profiles=@('Base')
+     Title='DNS Client: Enable DNSSEC validation'
+     Patterns=@(
+       'Turn on DNSSEC validation\s*[:\-]\s*([^\r\n<]+)',
+       'Включить проверку DNSSEC\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить проверку DNSSEC на клиентах.'
+     Fix='ПК → Адм. шаблоны → Сеть → DNS Client → «Turn on DNSSEC validation» → Enabled.'
+  },
+
+  # ======== UAC ========
+  @{ Id='UAC.AdminApproval'; Category='UAC'; Severity='High'; Profiles=@('Base')
+     Title='UAC: Admin Approval Mode для встроенного администратора'
+     Patterns=@(
+       'User Account Control:\s*Admin Approval Mode for the Built-in Administrator account\s*[:\-]\s*([^\r\n<]+)',
+       'Контроль учетных записей:\s*режим одобрения администратором для встроенной учетной записи администратора\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить Admin Approval Mode для встроенного администратора.'
+     Fix='ПК → Параметры безопасности → Локальные политики → Параметры безопасности → соответствующая настройка → Enabled.'
+  },
+  @{ Id='UAC.Virtualize'; Category='UAC'; Severity='Medium'; Profiles=@('Base')
+     Title='UAC: Virtualize file and registry write failures'
+     Patterns=@(
+       'User Account Control:\s*Virtualize file and registry write failures to per-user locations\s*[:\-]\s*([^\r\n<]+)',
+       'Контроль учетных записей:\s*виртуализировать ошибки записи файлов и реестра в расположения пользователя\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить виртуализацию записи для совместимости приложений.'
+     Fix='ПК → Параметры безопасности → Локальные политики → Параметры безопасности → соответствующая настройка → Enabled.'
+  },
+
+  # ======== Журналы событий ========
+  @{ Id='EventLog.SecuritySize'; Category='Журналы'; Severity='Medium'; Profiles=@('Base')
+     Title='Security log size ≥ 196608 KB'
+     Patterns=@(
+       'Maximum security log size\s*\(KB\)\s*[:\-]\s*([0-9]+)',
+       'Максимальный размер журнала безопасности\s*\(КБ\)\s*[:\-]\s*([0-9]+)'
+     )
+     DesiredText='≥ 196608 KB (192 MB)'
+     Desired=@()
+     Normalize={ param($s) $s }
+     Recommendation='Увеличить размер журнала Security минимум до 192 МБ.'
+     Fix='ПК → Параметры Windows → Security Settings → Event Log → Security → Maximum log size.'
+     Compare={ param($found) $v=Get-FirstInt $found; $v -ge 196608 }
+  },
+  @{ Id='EventLog.SecurityRetention'; Category='Журналы'; Severity='High'; Profiles=@('Base')
+     Title='Security log retention = Do not overwrite (manual clear)'
+     Patterns=@(
+       'Retention method for security log\s*[:\-]\s*([^\r\n<]+)',
+       'Способ хранения журнала безопасности\s*[:\-]\s*([^\r\n<]+)'
+     )
+     DesiredText='Do not overwrite events (Clear logs manually)'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Настроить неизменяемое хранение Security log (ручная очистка).'
+     Fix='ПК → Event Log → Security → Retention method → Do not overwrite events.'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); ($n -match 'do not overwrite' -or $n -match 'очищать вручную') }
   },
 
   # ======== Пароли / Блокировки ========
@@ -814,6 +918,17 @@ $Rules = @(
      Fix='ПК → Адм. шаблоны → Windows PowerShell → «Turn on Script Execution» → Allow only signed scripts.'
      Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); ($n -match 'allow only signed' -or $n -match 'signed scripts' -or $n -match 'подписан') }
   },
+  @{ Id='ScriptHost.Disable'; Category='Scripts'; Severity='Medium'; Profiles=@('Base')
+     Title='Turn off Windows Script Host = Enabled'
+     Patterns=@(
+       'Turn off Windows Script Host\s*[:\-]\s*([^\r\n<]+)',
+       'Отключить Windows Script Host\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Отключить WSH, если не требуется (снизить риск VBS/JScript).'
+     Fix='ПК → Адм. шаблоны → Компоненты Windows → Windows Script Host → «Turn off Windows Script Host» → Enabled.'
+  },
   @{ Id='Defender.ASR'; Category='Defender'; Severity='Medium'; Profiles=@('Defender')
      Title='Attack Surface Reduction rules'
      Patterns=@(
@@ -901,6 +1016,30 @@ $Rules = @(
      Fix='Пользователь → Адм. шаблоны → Персонализация → «Тайм-аут хранителя экрана».'
      Compare={ param($found) $v=Get-FirstInt $found; @(900,1200,1800) -contains $v }
   },
+  @{ Id='GPO.WaitForNetwork'; Category='Group Policy'; Severity='Medium'; Profiles=@('Base')
+     Title='Always wait for the network at computer startup and logon'
+     Patterns=@(
+       'Always wait for the network at computer startup and logon\s*[:\-]\s*([^\r\n<]+)',
+       'Всегда ждать сеть при запуске и входе\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить ожидание сети, чтобы GPO применялись корректно.'
+     Fix='ПК → Адм. шаблоны → Система → Group Policy → «Always wait for the network...» → Enabled.'
+  },
+  @{ Id='GPO.SlowLinkDetection'; Category='Group Policy'; Severity='Low'; Profiles=@('Base')
+     Title='Configure slow link detection ≤ 0 (disabled)'
+     Patterns=@(
+       'Configure slow link detection\s*[:\-]\s*([0-9]+)',
+       'Настроить обнаружение медленной связи\s*[:\-]\s*([0-9]+)'
+     )
+     DesiredText='0 (выключено)'
+     Desired=@()
+     Normalize={ param($s) $s }
+     Recommendation='Отключить порог медленного канала (0), чтобы политики применялись всегда.'
+     Fix='ПК → Адм. шаблоны → Система → Group Policy → «Configure slow link detection» → 0.'
+     Compare={ param($found) $v=Get-FirstInt $found; $v -le 0 }
+  },
   @{ Id='Account.GuestDisabled'; Category='Учетные записи'; Severity='High'; Profiles=@('Base')
      Title='Guest account status = Disabled'
      Patterns=@(
@@ -922,6 +1061,17 @@ $Rules = @(
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Разрешить пустые пароли только для интерактивного входа (лучше вовсе запретить).'
      Fix='ПК → Параметры безопасности → «Accounts: Limit local account use of blank passwords to console logon only» → Enabled.'
+  },
+  @{ Id='Time.NTP.Enable'; Category='Time'; Severity='Medium'; Profiles=@('Base')
+     Title='Windows NTP Client включен'
+     Patterns=@(
+       'Enable Windows NTP Client\s*[:\-]\s*([^\r\n<]+)',
+       'Включить клиент времени Windows NTP\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить клиент NTP для синхронизации времени.'
+     Fix='ПК → Адм. шаблоны → Система → Time Service → «Enable Windows NTP Client» → Enabled.'
   },
   @{ Id='User.CantChangePassword'; Category='Учетные записи'; Severity='Low'; Profiles=@('Base')
      Title='Пользователь не может менять пароль (должно быть Отключено)'
@@ -962,6 +1112,17 @@ $Rules = @(
      Fix='ПК → Адм. шаблоны → Система → «Configure LSASS to run as a protected process» или реестр HKLM\SYSTEM\...\Lsa → RunAsPPL=1.'
      Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); ($n -match 'enabled' -or $n -match 'включ' -or $n -match 'runasppl' -or $n -match '\b1\b') }
   },
+  @{ Id='Kernel.DMAProtection'; Category='Безопасность'; Severity='Medium'; Profiles=@('Base')
+     Title='Kernel DMA Protection = Enabled'
+     Patterns=@(
+       'Kernel DMA Protection\s*[:\-]\s*([^\r\n<]+)',
+       'Защита от DMA-атак ядра\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить защиту от DMA-атак (Kernel DMA Protection).'
+     Fix='ПК → Адм. шаблоны → Система → Device Guard / Thunderbolt → включить Kernel DMA Protection.'
+  },
 
   # ======== Аудит ========
   @{ Id='Audit.ProcessTracking'; Category='Аудит'; Severity='High'; Profiles=@('Base')
@@ -976,6 +1137,19 @@ $Rules = @(
      Recommendation='Включить аудит запуска процессов.'
      Fix='ПК → Параметры безопасности → Локальная политика аудита → «Отслеживание процессов» → Успех (и Отказ).'
      Compare={ param($found) $n=($found -replace '\s+',' ' -replace ',',' ').ToLowerInvariant(); ($n -match 'успех' -or $n -match 'success') }
+  },
+  @{ Id='Audit.SecuritySystem'; Category='Аудит'; Severity='High'; Profiles=@('Base')
+     Title='Аудит: расширение системы безопасности'
+     Patterns=@(
+       'Audit security system extension\s*[:\-]?\s*([^\r\n<]+)',
+       'Аудит расширения системы безопасности\s*[:\-]?\s*([^\r\n<]+)'
+     )
+     DesiredText='Успех и Отказ'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить Success и Failure для расширения системы безопасности (LSASS).'
+     Fix='ПК → Параметры безопасности → Локальная политика аудита → «Audit security system extension».'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); (($n -match 'success' -or $n -match 'успех') -and ($n -match 'failure' -or $n -match 'отказ')) }
   },
   @{ Id='Audit.PrivilegeUse'; Category='Аудит'; Severity='High'; Profiles=@('Base')
      Title='Аудит: использование привилегий'
