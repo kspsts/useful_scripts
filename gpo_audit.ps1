@@ -1081,11 +1081,11 @@ $Rules = @(
      Title='Guest account status = Disabled'
      Patterns=@(
        'Accounts:\s*Guest account status\s*[:\-]\s*([^\r\n<]+)',
-       'Учетные записи:\s*состояние учетной записи Гость\s*[:\-]\s*([^\r\n<]+)',
-       'Accounts:\s*Guest account status\s*(?:[:\-]\s*)?([^\r\n<]+)',
-       'Учетные записи:\s*состояние учетной записи Гость\s*(?:[:\-]\s*)?([^\r\n<]+)',
-       '<td>\s*Accounts: Guest account status\s*</td>\s*<td>\s*([^<]+)\s*</td>',
-       '<td>\s*Учетные записи: состояние учетной записи Гость\s*</td>\s*<td>\s*([^<]+)\s*</td>'
+      'Учетные записи:\s*состояние учетной записи ["\'«]?Гость["\'»]?\s*[:\-]\s*([^\r\n<]+)',
+      'Accounts:\s*Guest account status\s*(?:[:\-]\s*)?([^\r\n<]+)',
+      'Учетные записи:\s*состояние учетной записи ["\'«]?Гость["\'»]?\s*(?:[:\-]\s*)?([^\r\n<]+)',
+      '<td>\s*Accounts: Guest account status\s*</td>\s*<td>\s*([^<]+)\s*</td>',
+      '<td>\s*Учетные записи: состояние учетной записи ["\'«]?Гость["\'»]?\s*</td>\s*<td>\s*([^<]+)\s*</td>'
      )
      Desired=@('Disabled','Отключено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
@@ -1094,10 +1094,13 @@ $Rules = @(
   },
   @{ Id='Account.BlankPasswordLimit'; Category='Учетные записи'; Severity='Medium'; Profiles=@('Base')
      Title='Запрет локальных учеток с пустым паролем (только консоль)'
-     Patterns=@(
-       'Accounts:\s*Limit local account use of blank passwords to console logon only\s*[:\-]\s*([^\r\n<]+)',
-       'Учетные записи:\s*ограничить использование пустых паролей при входе только консольно\s*[:\-]\s*([^\r\n<]+)'
-     )
+    Patterns=@(
+      'Accounts:\s*Limit local account use of blank passwords to console logon only\s*[:\-]\s*([^\r\n<]+)',
+      'Учетные записи:\s*ограничить использование пустых паролей при входе только консольно\s*[:\-]\s*([^\r\n<]+)',
+      'Учетные записи:\s*(?:ограничить|разрешить) использование пустых паролей[^<\r\n]*консоль[^<\r\n]*\s*(?:[:\-]\s*)?([^\r\n<]+)',
+      '<td>\s*Accounts: Limit local account use of blank passwords to console logon only\s*</td>\s*<td>\s*([^<]+)\s*</td>',
+      '<td>\s*Учетные записи:\s*(?:ограничить|разрешить) использование пустых паролей[^<]*\s*</td>\s*<td>\s*([^<]+)\s*</td>'
+    )
      Desired=@('Enabled','Включено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Разрешить пустые пароли только для интерактивного входа (лучше вовсе запретить).'
