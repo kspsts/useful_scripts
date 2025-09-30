@@ -322,11 +322,6 @@ $Rules = @(
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Не хранить LM-хэш паролей.'
      Fix='ПК → Параметры безопасности → «Do not store LAN Manager hash value…» → Enabled.'
-     Compare={
-       param($found)
-       $norm = ($found -replace '\s+',' ').Trim().ToLowerInvariant()
-       return ($norm -match 'enabled' -or $norm -match 'включ')
-     }
   },
 
   # ======== RDP ========
@@ -561,13 +556,6 @@ $Rules = @(
      Normalize={ param($s) $s }
      Recommendation='Указать явный список доверенных принт-серверов.'
      Fix='ПК → Адм. шаблоны → Принтеры → «Package Point and Print – Approved servers».'
-     Compare={
-       param($found)
-       $clean = ($found -replace '\s+',' ').Trim(' ;,')
-       if([string]::IsNullOrWhiteSpace($clean)){ return $false }
-       $items = $clean -split '[;\s,]+' | Where-Object { $_ -match '[a-z0-9]' }
-       return ($items -and $items.Count -gt 0)
-     }
   },
 
   # ======== LAPS ========
@@ -810,6 +798,7 @@ foreach($f in $files){
 
   foreach($rule in $applicable){
     $found = $null
+    $calcOk = $null
     foreach($pat in $rule.Patterns){
       $m = [regex]::Match($txt, $pat, 'IgnoreCase')
       if($m.Success){
@@ -842,6 +831,10 @@ foreach($f in $files){
           if($names.Count -gt 0){
             $unique = $names | Sort-Object -Unique
             $found = ($unique -join '; ')
+            $calcOk = $true
+          }
+          else {
+            $calcOk = $false
           }
         }
       }
@@ -852,10 +845,22 @@ foreach($f in $files){
           $mm = [regex]::Match($txt, 'Не сохранять значение хэша LAN Manager.*?\s*(Включено|Отключено|Не настроено|Не задано)', 'IgnoreCase')
           if($mm.Success){ $found = $mm.Groups[1].Value.Trim() }
         }
+        if($found){
+          $norm = ($found -replace '\s+',' ').Trim().ToLowerInvariant()
+          $calcOk = ($norm -match 'enabled' -or $norm -match 'включ')
+        }
       }
       'SMBv1.Disable' {
         $mm = [regex]::Match($txt, 'Value name\s*SMB1\s*Value type\s*REG_DWORD\s*Value data\s*([0-9x ()]+)', 'IgnoreCase')
         if($mm.Success){ $found = $mm.Groups[1].Value.Trim() }
+        if($found){
+          $norm = ($found -replace '\s+',' ').Trim().ToLowerInvariant()
+          if($norm -match '0x0' -or $norm -match '\b0\b' -or $norm -match 'disabled' -or $norm -match 'отключ'){
+            $calcOk = $true
+          } else {
+            $calcOk = $false
+          }
+        }
       }
     }
 
@@ -868,7 +873,10 @@ foreach($f in $files){
 
     # --- сравнение ---
     $ok = $false
-    if($rule.PSObject.Properties.Name -contains 'Compare' -and $null -ne $rule.Compare){
+    if($calcOk -ne $null){
+      $ok = [bool]$calcOk
+    }
+    elseif($rule.PSObject.Properties.Name -contains 'Compare' -and $null -ne $rule.Compare){
       $ok = & $rule.Compare $found
     } else {
       $norm = if($rule.PSObject.Properties.Name -contains 'Normalize' -and $null -ne $rule.Normalize){ & $rule.Normalize $found } else { ($found -replace '\s+',' ').ToLowerInvariant() }
