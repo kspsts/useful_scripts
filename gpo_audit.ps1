@@ -169,10 +169,14 @@ $Rules = @(
   # ======== Аутентификация / NTLM / LDAP / Kerberos ========
   @{ Id='NTLM.Outbound.Restrict'; Category='Аутентификация'; Severity='High'; Profiles=@('Base')
      Title='Restrict NTLM: исходящий трафик к удалённым серверам'
-     Patterns=@(
-       'Сетевая безопасность:\s*ограничения NTLM:\s*исходящий трафик NTLM к удаленным серверам\s*[:\-]\s*([^\.;\r\n<]+)',
-       'Network security:\s*Restrict NTLM:\s*Outgoing NTLM traffic to remote servers\s*[:\-]\s*([^\.;\r\n<]+)'
-     )
+    Patterns=@(
+      'Сетевая безопасность:\s*ограничения NTLM:\s*исходящий трафик NTLM к удаленным серверам\s*[:\-]\s*([^\.;\r\n<]+)',
+      'Network security:\s*Restrict NTLM:\s*Outgoing NTLM traffic to remote servers\s*[:\-]\s*([^\.;\r\n<]+)',
+      'Сетевая безопасность:\s*ограничения NTLM:\s*исходящий трафик NTLM к удаленным серверам\s*(?:[:\-]\s*)?([^\r\n<]+)',
+      'Network security:\s*Restrict NTLM:\s*Outgoing NTLM traffic to remote servers\s*(?:[:\-]\s*)?([^\r\n<]+)',
+      '<td>\s*Сетевая безопасность: ограничения NTLM: исходящий трафик NTLM к удаленным серверам\s*</td>\s*<td>\s*([^<]+)\s*</td>',
+      '<td>\s*Network security: Restrict NTLM: Outgoing NTLM traffic to remote servers\s*</td>\s*<td>\s*([^<]+)\s*</td>'
+    )
      Desired=@('deny all','audit all','deny all accounts','audit all accounts','блокировать весь трафик','аудит всего трафика')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Ограничить/аудировать исходящий NTLM; исключения — через список исключений.'
