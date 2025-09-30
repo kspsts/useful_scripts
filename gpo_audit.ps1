@@ -1,4 +1,4 @@
-<# 
+﻿<# 
 gpo_audit.ps1 — Аудит HTM-выгрузок GPO по лучшим практикам (PS 5.1)
 
 Параметры:
@@ -70,10 +70,7 @@ function Show-PrettyConsole {
   $severityWeight = @{ High = 0; Medium = 1; Low = 2; Info = 3 }
   $statusWeight   = @{ 'Не ОК' = 0; 'Не найдено' = 1; 'OK' = 2 }
 
-  $sorted = $Items | Sort-Object \
-    @{ Expression = { if($statusWeight.ContainsKey($_.Status)){ $statusWeight[$_.Status] } else { 99 } } },\
-    @{ Expression = { if($severityWeight.ContainsKey($_.Severity)){ $severityWeight[$_.Severity] } else { 9 } } },\
-    'File','Category','Title'
+  $sorted = $Items | Sort-Object @{ Expression = { if($statusWeight.ContainsKey($_.Status)){ $statusWeight[$_.Status] } else { 99 } } }, @{ Expression = { if($severityWeight.ContainsKey($_.Severity)){ $severityWeight[$_.Severity] } else { 9 } } }, 'File','Category','Title'
 
   $currentFile = $null
   foreach($r in $sorted){
@@ -91,7 +88,7 @@ function Show-PrettyConsole {
       $icon = '⚠️'; $col = 'Yellow'; $state = '[WARN]'
     }
 
-    Write-Host ("$icon $state [$($r.Severity)] $($r.Category) — $($r.Title)") -ForegroundColor $col
+    Write-Host ("$icon $state [$($r.Severity)] $($r.Category) - $($r.Title)") -ForegroundColor $col
     Write-Host ("  Правило: $($r.RuleId)") -ForegroundColor DarkGray
 
     if($r.Status -ne 'OK'){
@@ -121,7 +118,7 @@ function Resolve-ReportPath {
   $target = $Base
   $ext = [System.IO.Path]::GetExtension($target)
   if([string]::IsNullOrWhiteSpace($ext)){
-    $target = "$target.$Extension"
+    $target = "{0}.{1}" -f $target, $Extension
   }
   elseif($ext.TrimStart('.') -ne $Extension){
     $target = [System.IO.Path]::ChangeExtension($target, $Extension)
@@ -894,7 +891,7 @@ switch($Format){
       $file = Escape-Markdown $item.File
       $title = Escape-Markdown $item.Title
       $rule = Escape-Markdown $item.RuleId
-      [void]$sb.AppendLine( ("- **{0}** [{1}] `{2}` — {3}" -f $item.Status, $item.Severity, $rule, $title) )
+      [void]$sb.AppendLine( ("- **{0}** [{1}] `{2}` - {3}" -f $item.Status, $item.Severity, $rule, $title) )
       [void]$sb.AppendLine( ("  - Файл: {0}" -f $file) )
       if($item.Found){ [void]$sb.AppendLine( ("  - Найдено: {0}" -f (Escape-Markdown $item.Found)) ) }
       if($item.Desired){ [void]$sb.AppendLine( ("  - Ожидается: {0}" -f (Escape-Markdown $item.Desired)) ) }
@@ -913,17 +910,19 @@ switch($Format){
   [void]$sb.AppendLine('| Файл | Категория | Правило | Заголовок | Статус | Срочность | Найдено | Ожидается | Рекомендация | Исправление |')
   [void]$sb.AppendLine('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |')
   foreach($item in ($mdItems | Sort-Object Severity, Category, Title, File)){
-    $row = "| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} |" -f \
-      (Escape-Markdown $item.File),\
-      (Escape-Markdown $item.Category),\
-      (Escape-Markdown $item.RuleId),\
-      (Escape-Markdown $item.Title),\
-      (Escape-Markdown $item.Status),\
-      (Escape-Markdown $item.Severity),\
-      (Escape-Markdown $item.Found),\
-      (Escape-Markdown $item.Desired),\
-      (Escape-Markdown $item.Recommendation),\
+    $rowValues = @(
+      (Escape-Markdown $item.File),
+      (Escape-Markdown $item.Category),
+      (Escape-Markdown $item.RuleId),
+      (Escape-Markdown $item.Title),
+      (Escape-Markdown $item.Status),
+      (Escape-Markdown $item.Severity),
+      (Escape-Markdown $item.Found),
+      (Escape-Markdown $item.Desired),
+      (Escape-Markdown $item.Recommendation),
       (Escape-Markdown $item.Fix)
+    )
+    $row = "| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} |" -f $rowValues
     [void]$sb.AppendLine($row)
   }
 
@@ -933,7 +932,7 @@ switch($Format){
     foreach($group in ($mdItems | Group-Object RuleId | Sort-Object Name)){
       $sample = $group.Group | Select-Object -First 1
       $statusStats = ($group.Group | Group-Object Status | ForEach-Object { "{0}: {1}" -f $_.Name,$_.Count }) -join ', '
-      [void]$sb.AppendLine( ("- `{0}` — {1} ({2})" -f $group.Name, (Escape-Markdown $sample.Title), $statusStats) )
+      [void]$sb.AppendLine( ("- `{0}` - {1} ({2})" -f $group.Name, (Escape-Markdown $sample.Title), $statusStats) )
     }
   }
 
