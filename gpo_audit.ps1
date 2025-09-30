@@ -271,14 +271,19 @@ $Rules = @(
   @{ Id='SMBv1.Disable'; Category='SMB'; Severity='Critical'; Profiles=@('Base')
      Title='Отключение SMBv1'
      Patterns=@(
-       'SMBv1.*[:\-]?\s*([^\r\n<]+)',
-       'Lanman(Server|Workstation).*(SMB1|SMB 1\.0).*[:\-]?\s*([^\r\n<]+)',
-       'Включить протокол SMB 1\.0.*[:\-]?\s*([^\r\n<]+)'
+       'Value name\s*SMB1\s*Value type\s*REG_DWORD\s*Value data\s*([0-9x ()]+)',
+       'Lanman(?:Server|Workstation).*?(?:SMB1|SMB 1\.0).*?(?:value data|=)?\s*([0-9x ()]+)',
+       'Включить протокол SMB 1\.0.*?[:\-]?\s*([^\r\n<]+)'
      )
-     Desired=@('Disabled','Отключено','0')
+     Desired=@('Disabled','Отключено','0','0x0')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Полностью отключить SMBv1 (клиент и сервер).'
      Fix='Отключить компонент «SMB 1.0/CIFS», проверить реестр: HKLM\SYSTEM\CCS\Services\LanmanServer\Parameters\SMB1=0.'
+     Compare={
+       param($found)
+       $norm = ($found -replace '\s+',' ').ToLowerInvariant()
+       return ($norm -match '\b0x0\b' -or $norm -match '\b0\b' -or $norm -match 'disabled' -or $norm -match 'отключ')
+     }
   },
   @{ Id='Anonymous.SAM'; Category='Security Options'; Severity='High'; Profiles=@('Base')
      Title='Network access: Do not allow anonymous enumeration of SAM accounts'
