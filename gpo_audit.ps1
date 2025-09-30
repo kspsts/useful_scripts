@@ -362,6 +362,19 @@ $Rules = @(
      Fix='ПК → Адм. шаблоны → RDP → Подключения → «Ограничить число подключений».'
      Compare={ param($found) $v=Get-FirstInt $found; $v -le 2 }
   },
+  @{ Id='RDP.CredSSP'; Category='RDP'; Severity='High'; Profiles=@('Base')
+     Title='CredSSP: Encryption Oracle Remediation = Force Updated Clients'
+     Patterns=@(
+       'Encryption Oracle Remediation\s*[:\-]\s*([^\r\n<]+)',
+       'Устранение проблем шифрования Oracle\s*[:\-]\s*([^\r\n<]+)'
+     )
+     DesiredText='Force Updated Clients / Принудительно использовать обновлённых клиентов'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Установить параметр в Force Updated Clients для защиты CredSSP.'
+     Fix='ПК → Адм. шаблоны → Система → Делегирование учетных данных → «Encryption Oracle Remediation» → Force Updated Clients.'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); ($n -match 'force updated' -or $n -match 'принудительно') }
+  },
 
   # ======== WinRM / LLMNR ========
   @{ Id='WinRM.DisableBasic'; Category='WinRM'; Severity='Medium'; Profiles=@('Base')
@@ -374,6 +387,17 @@ $Rules = @(
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Отключить Basic; использовать Kerberos/NTLMv2.'
      Fix='ПК → Адм. шаблоны → WinRM Client/Service → «Allow Basic authentication» → Disabled.'
+  },
+  @{ Id='WinRM.RequireEncryption'; Category='WinRM'; Severity='High'; Profiles=@('Base')
+     Title='WinRM: Allow unencrypted traffic = Disabled'
+     Patterns=@(
+       'Windows Remote Management \(WinRM\).*Allow unencrypted traffic\s*[:\-]\s*([^\.;\r\n<]+)',
+       'WinRM.*Разрешить нешифрованный трафик\s*[:\-]\s*([^\.;\r\n<]+)'
+     )
+     Desired=@('disabled','отключено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Запретить нешифрованный трафик WinRM (использовать HTTPS/TLS).'
+     Fix='ПК → Адм. шаблоны → WinRM Client/Service → «Allow unencrypted traffic» → Disabled.'
   },
   @{ Id='LLMNR.Disable'; Category='Сеть'; Severity='Medium'; Profiles=@('Base')
      Title='Отключение LLMNR'
@@ -398,6 +422,43 @@ $Rules = @(
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Включить требования сложности для паролей.'
      Fix='ПК → Параметры безопасности → Политика паролей → «Требовать сложность паролей» → Включено.'
+  },
+  @{ Id='Password.MinLength'; Category='Пароли'; Severity='High'; Profiles=@('Base')
+     Title='Минимальная длина пароля ≥ 14'
+     Patterns=@(
+       'Minimum password length\s*[:\-]\s*([0-9]+)',
+       'Минимальная длина пароля\s*[:\-]\s*([0-9]+)'
+     )
+     DesiredText='≥ 14 символов'
+     Desired=@()
+     Normalize={ param($s) $s }
+     Recommendation='Установить минимум 14 символов (или выше).'
+     Fix='ПК → Параметры безопасности → Политика паролей → «Minimum password length». '
+     Compare={ param($found) $v=Get-FirstInt $found; $v -ge 14 }
+  },
+  @{ Id='Password.History'; Category='Пароли'; Severity='Medium'; Profiles=@('Base')
+     Title='История паролей ≥ 24'
+     Patterns=@(
+       'Enforce password history\s*[:\-]\s*([0-9]+)',
+       'Запоминать историю паролей\s*[:\-]\s*([0-9]+)'
+     )
+     DesiredText='≥ 24 пароля'
+     Desired=@()
+     Normalize={ param($s) $s }
+     Recommendation='Разрешить историю не менее 24 паролей.'
+     Fix='ПК → Параметры безопасности → Политика паролей → «Enforce password history». '
+     Compare={ param($found) $v=Get-FirstInt $found; $v -ge 24 }
+  },
+  @{ Id='Password.Reversible'; Category='Пароли'; Severity='High'; Profiles=@('Base')
+     Title='Не хранить пароли в обратимом виде'
+     Patterns=@(
+       'Store passwords using reversible encryption\s*[:\-]\s*([^\r\n<]+)',
+       'Хранить пароли с обратимым шифрованием\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Disabled','Отключено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Отключить обратимое шифрование паролей.'
+     Fix='ПК → Параметры безопасности → Политика паролей → «Store passwords using reversible encryption». '
   },
   @{ Id='Account.Lockout.Duration'; Category='Учетные записи'; Severity='High'; Profiles=@('Base')
      Title='Длительность блокировки учетной записи (мин)'
@@ -438,6 +499,28 @@ $Rules = @(
      Recommendation='Требовать шифрование USB-носителей.'
      Fix='ПК → Адм. шаблоны → Компоненты Windows → BitLocker → Съёмные диски → «Требовать шифрование…» → Enabled.'
   },
+  @{ Id='BitLocker.OsDrives'; Category='Шифрование'; Severity='High'; Profiles=@('Base')
+     Title='BitLocker: требовать доп. аутентификацию при запуске'
+     Patterns=@(
+       'Require additional authentication at startup\s*[:\-]\s*([^\r\n<]+)',
+       'Требовать дополнительную проверку подлинности при запуске\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить BitLocker с дополнительной аутентификацией (TPM+PIN и т.п.).'
+     Fix='ПК → Адм. шаблоны → Компоненты Windows → BitLocker → ОС-диски → «Require additional authentication at startup» → Enabled.'
+  },
+  @{ Id='BitLocker.FixedDrives'; Category='Шифрование'; Severity='Medium'; Profiles=@('Base')
+     Title='BitLocker: шифрование фиксированных дисков'
+     Patterns=@(
+       'BitLocker.*fixed data drives\s*[:\-]?\s*([^\r\n<]+)',
+       'Шифрование фиксированных дисков.*[:\-]?\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Требовать BitLocker для фиксированных дисков.'
+     Fix='ПК → Адм. шаблоны → Компоненты Windows → BitLocker → Фиксированные диски → соответствующая политика.'
+  },
 
   # ======== TLS / Schannel (через реестр в Preferences) ========
   @{ Id='TLS10.Disable'; Category='TLS'; Severity='High'; Profiles=@('TLS')
@@ -472,6 +555,32 @@ $Rules = @(
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
      Recommendation='Задать упорядоченный безопасный список шифров.'
      Fix='ПК → Параметры безопасности → «SSL Cipher Suite Order» → Enabled (со списком).'
+  },
+  @{ Id='TLS12.Enabled'; Category='TLS'; Severity='High'; Profiles=@('TLS')
+     Title='TLS 1.2: Server/Client Enabled = 1'
+     Patterns=@(
+       'Protocols\\TLS 1\.2\\(Client|Server)\\Enabled.*[:\-]\s*([0-9]+)',
+       'SCHANNEL.*TLS 1\.2.*Enabled.*[:\-]\s*([0-9]+)'
+     )
+     DesiredText='Enabled = 1'
+     Desired=@()
+     Normalize={ param($s) $s }
+     Recommendation='Включить TLS 1.2 на клиенте и сервере.'
+     Fix='Preferences → Registry: ...\SCHANNEL\Protocols\TLS 1.2\(Client|Server)\Enabled = 1 (DWORD).'
+     Compare={ param($found) $v=Get-FirstInt $found; $v -eq 1 }
+  },
+  @{ Id='TLS.RC4.Disable'; Category='TLS'; Severity='High'; Profiles=@('TLS')
+     Title='Отключить RC4 в Schannel'
+     Patterns=@(
+       'SCHANNEL.*Ciphers\\RC4\s*[^\\]*\\Enabled.*[:\-]\s*([0-9]+)',
+       'Ciphers\\RC4.*Enabled.*[:\-]\s*([0-9]+)'
+     )
+     DesiredText='Enabled = 0'
+     Desired=@()
+     Normalize={ param($s) $s }
+     Recommendation='Полностью отключить RC4 (все варианты) в Schannel.'
+     Fix='Preferences → Registry: ...\SCHANNEL\Ciphers\RC4 *\Enabled = 0 (DWORD).'
+     Compare={ param($found) $v=Get-FirstInt $found; $v -eq 0 }
   },
 
   # ======== Брандмауэр ========
@@ -556,6 +665,47 @@ $Rules = @(
      Normalize={ param($s) $s }
      Recommendation='Указать явный список доверенных принт-серверов.'
      Fix='ПК → Адм. шаблоны → Принтеры → «Package Point and Print – Approved servers».'
+  },
+  @{ Id='Print.DriverInstallRestrict'; Category='PrintNightmare'; Severity='High'; Profiles=@('Print')
+     Title='RestrictDriverInstallationToAdministrators = Enabled'
+     Patterns=@(
+       'RestrictDriverInstallationToAdministrators.*Value data\s*([0-9x ()]+)',
+       'RestrictDriverInstallationToAdministrators\s*[:\-]?\s*([^\r\n<]+)'
+     )
+     DesiredText='0x1 (1) / Enabled'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Запретить установку драйверов неадминистраторами (требовать администратора).'
+     Fix='Preferences → Windows Settings → Registry → HKLM\Software\Policies\Microsoft\Windows NT\Printers\PointAndPrint → RestrictDriverInstallationToAdministrators = 1.'
+     Compare={
+       param($found)
+       $norm = ($found -replace '\s+',' ').ToLowerInvariant()
+       return ($norm -match '0x1' -or $norm -match '\b1\b' -or $norm -match 'enabled' -or $norm -match 'включ')
+     }
+  },
+  @{ Id='Print.SecurityPrompts'; Category='PrintNightmare'; Severity='Medium'; Profiles=@('Print')
+     Title='Point and Print security prompts = Warning + Elevation'
+     Patterns=@(
+       'Security Prompts: When installing drivers for a new connection:\s*[^\r\n]+When updating drivers for an existing connection:\s*[^\r\n]+'
+     )
+     DesiredText='Show warning and elevation prompt / Показывать предупреждение и запрос повышения'
+     Desired=@()
+     Normalize={ param($s) $s }
+     Recommendation='Включить предупреждения и запрос повышения для установки/обновления драйверов печати.'
+     Fix='ПК → Адм. шаблоны → Принтеры → «Point and Print Restrictions» → Warning + Elevation для новых и обновляемых драйверов.'
+     Compare={
+       param($found)
+       $text = ($found -replace '\s+',' ').ToLowerInvariant()
+       $install = [regex]::Match($text, 'installing drivers for a new connection:\s*(.+?)(?:when updating|$)')
+       $update  = [regex]::Match($text, 'when updating drivers for an existing connection:\s*(.+)$')
+       $phrases = @('show warning and elevation prompt','показывать предупреждение и запрос повышения','показывать предупреждение и запрашивать повышение')
+       $okInstall = $false; $okUpdate = $false
+       $instValue = if($install.Success){ $install.Groups[1].Value.Trim() } else { '' }
+       $updValue  = if($update.Success){ $update.Groups[1].Value.Trim() } else { '' }
+       foreach($p in $phrases){ if($instValue -match $p){ $okInstall = $true; break } }
+       foreach($p in $phrases){ if($updValue -match $p){ $okUpdate = $true; break } }
+       return ($okInstall -and $okUpdate)
+     }
   },
 
   # ======== LAPS ========
@@ -651,6 +801,19 @@ $Rules = @(
      Recommendation='Включить транскрипцию для расследований.'
      Fix='ПК → Адм. шаблоны → Windows PowerShell → «Turn on PowerShell Transcription».'
   },
+  @{ Id='PowerShell.ExecutionPolicy'; Category='PowerShell'; Severity='High'; Profiles=@('PowerShell')
+     Title='PowerShell: Script Execution = Allow only signed'
+     Patterns=@(
+       'Turn on Script Execution\s*[:\-]\s*([^\r\n<]+)',
+       'Разрешить выполнение сценариев\s*[:\-]\s*([^\r\n<]+)'
+     )
+     DesiredText='Allow only signed / Разрешить только подписанные'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Ограничить выполнение сценариев PowerShell только подписанными (AllSigned).'
+     Fix='ПК → Адм. шаблоны → Windows PowerShell → «Turn on Script Execution» → Allow only signed scripts.'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); ($n -match 'allow only signed' -or $n -match 'signed scripts' -or $n -match 'подписан') }
+  },
   @{ Id='Defender.ASR'; Category='Defender'; Severity='Medium'; Profiles=@('Defender')
      Title='Attack Surface Reduction rules'
      Patterns=@(
@@ -663,6 +826,52 @@ $Rules = @(
      Recommendation='Включить критичные правила ASR.'
      Fix='ПК → Адм. шаблоны → Microsoft Defender Antivirus → ASR.'
      Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); ($n -match 'enabled' -or $n -match 'включ' -or $n -match 'block' -or $n -match 'блок') }
+  },
+  @{ Id='Defender.AV.Enabled'; Category='Defender'; Severity='High'; Profiles=@('Defender')
+     Title='Не отключать Microsoft Defender Antivirus'
+     Patterns=@(
+       'Turn off Microsoft Defender Antivirus\s*[:\-]\s*([^\r\n<]+)',
+       'Отключить Защитник Microsoft Antivirus\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Disabled','Отключено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Не отключайте штатный антивирус (или обеспечьте эквивалент).'
+     Fix='ПК → Адм. шаблоны → Microsoft Defender Antivirus → «Turn off Microsoft Defender Antivirus» → Disabled.'
+  },
+  @{ Id='Defender.RTP'; Category='Defender'; Severity='High'; Profiles=@('Defender')
+     Title='Реальное время Defender включено'
+     Patterns=@(
+       'Turn off real-time protection\s*[:\-]\s*([^\r\n<]+)',
+       'Отключить защиту в режиме реального времени\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Disabled','Отключено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Не отключайте защиту в реальном времени.'
+     Fix='ПК → Адм. шаблоны → Microsoft Defender Antivirus → «Turn off real-time protection» → Disabled.'
+  },
+  @{ Id='Defender.CloudDelivered'; Category='Defender'; Severity='Medium'; Profiles=@('Defender')
+     Title='Cloud-delivered protection = Enabled'
+     Patterns=@(
+       'Turn on cloud-delivered protection\s*[:\-]\s*([^\r\n<]+)',
+       'Включить облачную защиту\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить облачную защиту Microsoft Defender.'
+     Fix='ПК → Адм. шаблоны → Microsoft Defender Antivirus → MAPS → «Turn on cloud-delivered protection» → Enabled.'
+  },
+  @{ Id='Defender.SampleSubmission'; Category='Defender'; Severity='Low'; Profiles=@('Defender')
+     Title='Отправка образцов: автоматически безопасные'
+     Patterns=@(
+       'Send file samples when further analysis is required\s*[:\-]\s*([^\r\n<]+)',
+       'Отправлять образцы файлов при необходимости дополнительного анализа\s*[:\-]\s*([^\r\n<]+)'
+     )
+     DesiredText='Send safe samples / Отправлять безопасные образцы'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Настроить автоматическую отправку безопасных образцов.'
+     Fix='ПК → Адм. шаблоны → Microsoft Defender Antivirus → MAPS → «Send file samples when further analysis is required» → Send safe samples automatically.'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); ($n -match 'send safe' -or $n -match 'безопасн') }
   },
 
   # ======== Контроль ПО ========
@@ -691,6 +900,28 @@ $Rules = @(
      Recommendation='Не более 15–30 минут простоя.'
      Fix='Пользователь → Адм. шаблоны → Персонализация → «Тайм-аут хранителя экрана».'
      Compare={ param($found) $v=Get-FirstInt $found; @(900,1200,1800) -contains $v }
+  },
+  @{ Id='Account.GuestDisabled'; Category='Учетные записи'; Severity='High'; Profiles=@('Base')
+     Title='Guest account status = Disabled'
+     Patterns=@(
+       'Accounts:\s*Guest account status\s*[:\-]\s*([^\r\n<]+)',
+       'Учетные записи:\s*состояние учетной записи Гость\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Disabled','Отключено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Отключить встроенную учетную запись Гость.'
+     Fix='ПК → Параметры безопасности → Локальные политики → Параметры безопасности → «Accounts: Guest account status» → Disabled.'
+  },
+  @{ Id='Account.BlankPasswordLimit'; Category='Учетные записи'; Severity='Medium'; Profiles=@('Base')
+     Title='Запрет локальных учеток с пустым паролем (только консоль)'
+     Patterns=@(
+       'Accounts:\s*Limit local account use of blank passwords to console logon only\s*[:\-]\s*([^\r\n<]+)',
+       'Учетные записи:\s*ограничить использование пустых паролей при входе только консольно\s*[:\-]\s*([^\r\n<]+)'
+     )
+     Desired=@('Enabled','Включено')
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Разрешить пустые пароли только для интерактивного входа (лучше вовсе запретить).'
+     Fix='ПК → Параметры безопасности → «Accounts: Limit local account use of blank passwords to console logon only» → Enabled.'
   },
   @{ Id='User.CantChangePassword'; Category='Учетные записи'; Severity='Low'; Profiles=@('Base')
      Title='Пользователь не может менять пароль (должно быть Отключено)'
@@ -758,6 +989,71 @@ $Rules = @(
      Recommendation='Аудит использования чувствительных привилегий.'
      Fix='ПК → Параметры безопасности → Локальная политика аудита → «Использование привилегий».'
      Compare={ param($found) $n=($found -replace '\s+',' ' -replace ',',' ').ToLowerInvariant(); ($n -match 'успех' -or $n -match 'success') }
+  },
+  @{ Id='Audit.AccountLogon'; Category='Аудит'; Severity='High'; Profiles=@('Base')
+     Title='Аудит: вход в учетную запись'
+     Patterns=@(
+       'Audit account logon events\s*[:\-]?\s*([^\r\n<]+)',
+       'Аудит входа в учетную запись\s*[:\-]?\s*([^\r\n<]+)'
+     )
+     DesiredText='Успех и Отказ'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить Success и Failure для входов учетных записей.'
+     Fix='ПК → Параметры безопасности → Локальная политика аудита → «Audit account logon events».'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); (($n -match 'success' -or $n -match 'успех') -and ($n -match 'failure' -or $n -match 'отказ')) }
+  },
+  @{ Id='Audit.AccountManagement'; Category='Аудит'; Severity='High'; Profiles=@('Base')
+     Title='Аудит: управление учетными записями'
+     Patterns=@(
+       'Audit account management\s*[:\-]?\s*([^\r\n<]+)',
+       'Аудит управления учетными записями\s*[:\-]?\s*([^\r\n<]+)'
+     )
+     DesiredText='Успех и Отказ'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Логировать управление учетными записями.'
+     Fix='ПК → Параметры безопасности → Локальная политика аудита → «Audit account management».'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); (($n -match 'success' -or $n -match 'успех') -and ($n -match 'failure' -or $n -match 'отказ')) }
+  },
+  @{ Id='Audit.ObjectAccess'; Category='Аудит'; Severity='Medium'; Profiles=@('Base')
+     Title='Аудит: доступ к объектам'
+     Patterns=@(
+       'Audit object access\s*[:\-]?\s*([^\r\n<]+)',
+       'Аудит доступа к объектам\s*[:\-]?\s*([^\r\n<]+)'
+     )
+     DesiredText='Успех и Отказ (минимум Успех)'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Включить аудит доступа к объектам для критичных ресурсов.'
+     Fix='ПК → Параметры безопасности → Локальная политика аудита → «Audit object access».'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); ($n -match 'success' -or $n -match 'успех') }
+  },
+  @{ Id='Audit.PolicyChange'; Category='Аудит'; Severity='Medium'; Profiles=@('Base')
+     Title='Аудит: изменение политики'
+     Patterns=@(
+       'Audit policy change\s*[:\-]?\s*([^\r\n<]+)',
+       'Аудит изменения политики\s*[:\-]?\s*([^\r\n<]+)'
+     )
+     DesiredText='Успех и Отказ'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='Логировать изменения политики безопасности.'
+     Fix='ПК → Параметры безопасности → Локальная политика аудита → «Audit policy change».'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); (($n -match 'success' -or $n -match 'успех') -and ($n -match 'failure' -or $n -match 'отказ')) }
+  },
+  @{ Id='Audit.DirectoryService'; Category='Аудит'; Severity='Medium'; Profiles=@('DC')
+     Title='Аудит: доступ к службе каталогов'
+     Patterns=@(
+       'Audit directory service access\s*[:\-]?\s*([^\r\n<]+)',
+       'Аудит доступа к службе каталогов\s*[:\-]?\s*([^\r\n<]+)'
+     )
+     DesiredText='Успех и Отказ'
+     Desired=@()
+     Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
+     Recommendation='На контроллерах домена включить аудит доступа к AD.'
+     Fix='ПК → Параметры безопасности → Локальная политика аудита → «Audit directory service access».'
+     Compare={ param($found) $n=($found -replace '\s+',' ').ToLowerInvariant(); (($n -match 'success' -or $n -match 'успех') -and ($n -match 'failure' -or $n -match 'отказ')) }
   }
 )
 
