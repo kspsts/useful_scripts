@@ -238,7 +238,7 @@ $Rules = @(
   @{ Id='SMB.Sign.Server'; Category='SMB'; Severity='High'; Profiles=@('Base')
      Title='Microsoft network server: Digitally sign communications (always)'
      Patterns=@(
-       'Сетевой доступ.*цифровая подпись.*сообщений.*\(всегда\)\s*[:\-]\s*([^\.;\r\n<]+)',
+       'Сеть Microsoft:\s*всегда выполнять цифровую подпись сообщений \(сервер\)\s*[:\-]\s*([^\r\n<]+)',
        'Microsoft network server:\s*Digitally sign communications\s*\(always\)\s*[:\-]\s*([^\.;\r\n<]+)'
      )
      Desired=@('enabled','включено')
@@ -249,7 +249,7 @@ $Rules = @(
   @{ Id='SMB.Sign.Client'; Category='SMB'; Severity='Medium'; Profiles=@('Base')
      Title='Microsoft network client: Digitally sign communications (always)'
      Patterns=@(
-       'Клиент.*цифровая подпись.*сообщений.*\(всегда\)\s*[:\-]\s*([^\.;\r\n<]+)',
+       'Клиент сети Microsoft:\s*всегда выполнять цифровую подпись сообщений \(клиент\)\s*[:\-]\s*([^\r\n<]+)',
        'Microsoft network client:\s*Digitally sign communications\s*\(always\)\s*[:\-]\s*([^\.;\r\n<]+)'
      )
      Desired=@('enabled','включено')
@@ -402,8 +402,10 @@ $Rules = @(
   @{ Id='WinRM.DisableBasic'; Category='WinRM'; Severity='Medium'; Profiles=@('Base')
      Title='WinRM: запрет Basic аутентификации'
      Patterns=@(
-       'Windows Remote Management \(WinRM\).*Basic Authentication\s*[:\-]\s*([^\.;\r\n<]+)',
-       'WinRM.*Basic Authentication\s*[:\-]\s*([^\.;\r\n<]+)'
+       'Windows Remote Management \(WinRM\).*Allow Basic authentication\s*[:\-]\s*([^\.;\r\n<]+)',
+       'Разрешить обычную проверку подлинности.*\(WinRM.*\)\s*[:\-]\s*([^\.;\r\n<]+)',
+       'Разрешить обычную проверку подлинности\s*[:\-]\s*([^\.;\r\n<]+)' ,
+       'WinRM.*Allow Basic authentication\s*[:\-]\s*([^\.;\r\n<]+)'
      )
      Desired=@('disabled','отключено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
@@ -414,7 +416,9 @@ $Rules = @(
      Title='WinRM: Allow unencrypted traffic = Disabled'
      Patterns=@(
        'Windows Remote Management \(WinRM\).*Allow unencrypted traffic\s*[:\-]\s*([^\.;\r\n<]+)',
-       'WinRM.*Разрешить нешифрованный трафик\s*[:\-]\s*([^\.;\r\n<]+)'
+       'Разрешить незашифрованный трафик.*\(WinRM.*\)\s*[:\-]\s*([^\.;\r\n<]+)',
+       'Разрешить незашифрованный трафик\s*[:\-]\s*([^\.;\r\n<]+)' ,
+       'WinRM.*Allow unencrypted traffic\s*[:\-]\s*([^\.;\r\n<]+)'
      )
      Desired=@('disabled','отключено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
@@ -1095,11 +1099,12 @@ $Rules = @(
 
   # ======== Современные защиты учётных данных ========
   @{ Id='Credential.Guard'; Category='Virtualization'; Severity='High'; Profiles=@('Base')
-     Title='Credential Guard'
+     Title='Включение безопасности на основе виртуализации (Credential Guard)'
      Patterns=@(
        'Credential Guard\s*[:\-]?\s*([^\r\n<]+)',
        'Защита учетных данных\s*[:\-]?\s*([^\r\n<]+)',
-       'Virtualization Based Security\s*[:\-]?\s*([^\r\n<]+)'
+       'Virtualization Based Security\s*[:\-]?\s*([^\r\n<]+)',
+       'Включение безопасности на основе виртуализации \(Credential Guard\)\s*[:\-]?\s*([^\r\n<]+)'
      )
      Desired=@('Enabled','Включено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
