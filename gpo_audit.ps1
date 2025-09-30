@@ -1060,7 +1060,11 @@ $Rules = @(
      Title='Guest account status = Disabled'
      Patterns=@(
        'Accounts:\s*Guest account status\s*[:\-]\s*([^\r\n<]+)',
-       'Учетные записи:\s*состояние учетной записи Гость\s*[:\-]\s*([^\r\n<]+)'
+       'Учетные записи:\s*состояние учетной записи Гость\s*[:\-]\s*([^\r\n<]+)',
+       'Accounts:\s*Guest account status\s*(?:[:\-]\s*)?([^\r\n<]+)',
+       'Учетные записи:\s*состояние учетной записи Гость\s*(?:[:\-]\s*)?([^\r\n<]+)',
+       '<td>\s*Accounts: Guest account status\s*</td>\s*<td>\s*([^<]+)\s*</td>',
+       '<td>\s*Учетные записи: состояние учетной записи Гость\s*</td>\s*<td>\s*([^<]+)\s*</td>'
      )
      Desired=@('Disabled','Отключено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
