@@ -519,8 +519,10 @@ $Rules = @(
   @{ Id='Password.Complexity'; Category='Пароли'; Severity='High'; Profiles=@('Base')
      Title='Пароль должен соответствовать требованиям сложности'
      Patterns=@(
-       'Password must meet complexity requirements\s*(?:[:\-]\s*)?([^\r\n<]+)',
-       'Пароль должен соответствовать требованиям сложности\s*(?:[:\-]\s*)?([^\r\n<]+)'
+       '<td>\s*Password must meet complexity requirements\s*</td>\s*<td>\s*([^<]+)\s*</td>',
+       '<td>\s*Пароль должен соответствовать требованиям сложности\s*</td>\s*<td>\s*([^<]+)\s*</td>',
+       'Password must meet complexity requirements\s*(?:[:\-]\s*)?([^\r\n<\s]+)',
+       'Пароль должен соответствовать требованиям сложности\s*(?:[:\-]\s*)?([^\r\n<\s]+)'
      )
      Desired=@('Enabled','Включено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
@@ -530,6 +532,8 @@ $Rules = @(
   @{ Id='Password.MinLength'; Category='Пароли'; Severity='High'; Profiles=@('Base')
      Title='Минимальная длина пароля ≥ 14'
      Patterns=@(
+       '<td>\s*Minimum password length\s*</td>\s*<td>\s*([0-9]+)\s*',
+       '<td>\s*Минимальная длина пароля\s*</td>\s*<td>\s*([0-9]+)\s*',
        'Minimum password length\s*(?:[:\-]\s*)?([0-9]+)',
        'Минимальная длина пароля\s*(?:[:\-]\s*)?([0-9]+)'
      )
@@ -543,6 +547,8 @@ $Rules = @(
   @{ Id='Password.History'; Category='Пароли'; Severity='Medium'; Profiles=@('Base')
      Title='История паролей ≥ 24'
      Patterns=@(
+       '<td>\s*Enforce password history\s*</td>\s*<td>\s*([0-9]+)\s*',
+       '<td>\s*Запоминать историю паролей\s*</td>\s*<td>\s*([0-9]+)\s*',
        'Enforce password history\s*(?:[:\-]\s*)?([0-9]+)',
        'Запоминать историю паролей\s*(?:[:\-]\s*)?([0-9]+)'
      )
@@ -556,8 +562,10 @@ $Rules = @(
   @{ Id='Password.Reversible'; Category='Пароли'; Severity='High'; Profiles=@('Base')
      Title='Не хранить пароли в обратимом виде'
      Patterns=@(
-       'Store passwords using reversible encryption\s*(?:[:\-]\s*)?([^\r\n<]+)',
-       'Хранить пароли с обратимым шифрованием\s*(?:[:\-]\s*)?([^\r\n<]+)'
+       '<td>\s*Store passwords using reversible encryption\s*</td>\s*<td>\s*([^<]+)\s*</td>',
+       '<td>\s*Хранить пароли с обратимым шифрованием\s*</td>\s*<td>\s*([^<]+)\s*</td>',
+       'Store passwords using reversible encryption\s*(?:[:\-]\s*)?([^\r\n<\s]+)',
+       'Хранить пароли с обратимым шифрованием\s*(?:[:\-]\s*)?([^\r\n<\s]+)'
      )
      Desired=@('Disabled','Отключено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
