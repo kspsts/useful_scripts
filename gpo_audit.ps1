@@ -30,12 +30,33 @@ param(
 )
 
 # -------------------- Utils --------------------
+Add-Type -AssemblyName System.Web -ErrorAction SilentlyContinue
+
 function Remove-Html {
   param([string]$Html)
   $t = $Html -replace '(?s)<script.*?</script>','' -replace '(?s)<style.*?</style>',''
   $t = $t -replace '(?s)<[^>]+>',' ' -replace '&nbsp;',' ' -replace '&amp;','&'
   $t = $t -replace '\s+',' '
   return $t.Trim()
+}
+
+function Convert-TdPairsToText {
+  param([string]$Html)
+
+  if([string]::IsNullOrWhiteSpace($Html)){ return '' }
+
+  $matches = [regex]::Matches($Html, '<td>(?<name>[^<]+)</td>\s*<td>(?<value>[^<]*)</td>', 'IgnoreCase')
+  if($matches.Count -eq 0){ return '' }
+
+  $builder = New-Object System.Text.StringBuilder
+  foreach($m in $matches){
+    $name = [System.Web.HttpUtility]::HtmlDecode($m.Groups['name'].Value).Trim()
+    $value = [System.Web.HttpUtility]::HtmlDecode($m.Groups['value'].Value).Trim()
+    if([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($value)){ continue }
+    [void]$builder.AppendFormat('{0}: {1} ', $name, $value)
+  }
+
+  return $builder.ToString().Trim()
 }
 
 function New-Result {
@@ -1269,7 +1290,13 @@ $results = @()
 
 foreach($f in $files){
   $raw = Get-Content -LiteralPath $f.FullName -Raw
-  $txt = Remove-Html -Html $raw
+  $structured = Convert-TdPairsToText -Html $raw
+  $plain = Remove-Html -Html $raw
+  if([string]::IsNullOrWhiteSpace($structured)){
+    $txt = $plain
+  } else {
+    $txt = ($structured + ' ' + $plain).Trim()
+  }
   $displayName = if($ShowFullPath){ $f.FullName } else { $f.Name }
 
   # селективный выбор правил: если нет совпадений паттернов — правило для файла не применяется
