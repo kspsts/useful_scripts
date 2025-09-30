@@ -282,8 +282,8 @@ $Rules = @(
      Compare={
        param($found)
        $norm = ($found -replace '\s+',' ').Trim().ToLowerInvariant()
-       if($norm -match '(?<![0-9a-z])0x0(?![0-9a-z])'){ return $true }
-       if($norm -match '(?<![0-9a-z])0(?![0-9a-z])'){ return $true }
+       if($norm -match '0x0'){ return $true }
+       if($norm -match '\b0\b'){ return $true }
        if($norm -match 'disabled'){ return $true }
        if($norm -match 'отключ'){ return $true }
        return $false
@@ -314,8 +314,8 @@ $Rules = @(
   @{ Id='NoLMHash'; Category='Security Options'; Severity='High'; Profiles=@('Base')
      Title='Network security: Do not store LAN Manager hash value on next password change'
      Patterns=@(
-       'Do not store LAN Manager hash value.*[:\-]\s*([^\r\n<]+)',
-       'Не сохранять значение хэша LAN Manager.*[:\-]\s*([^\r\n<]+)'
+       'Do not store LAN Manager hash value on next password change\s*(Enabled|Disabled|Not Configured)',
+       'Не сохранять значение хэша LAN Manager.*?\s*(Включено|Отключено|Не настроено|Не задано)'
      )
      Desired=@('Enabled','Включено')
      Normalize={ param($s) ($s -replace '\s+',' ').ToLowerInvariant() }
@@ -547,8 +547,8 @@ $Rules = @(
   @{ Id='Print.ApprovedServers'; Category='PrintNightmare'; Severity='High'; Profiles=@('Print')
      Title='Package Point and Print – Approved servers (список не пустой)'
      Patterns=@(
-       'Package Point and Print.*Approved servers.*[:\-]\s*([^\r\n<]+)',
-       'Утверждённые серверы Point and Print.*[:\-]\s*([^\r\n<]+)'
+       'Package Point and Print.*?Approved servers.*?Enter fully qualified server names(?: separated by semicolons)?\s*(.*?)\s*(?:Users can only|This setting|This policy|Policy|Setting|$)',
+       'Утверждённые серверы Point and Print.*?Введите полные доменные имена серверов\s*(.*?)\s*(?:Пользователи могут|Если этот параметр|Это параметр|$)'
      )
      DesiredText='Непустой список доверенных серверов'
      Desired=@()
@@ -557,12 +557,8 @@ $Rules = @(
      Fix='ПК → Адм. шаблоны → Принтеры → «Package Point and Print – Approved servers».'
      Compare={
        param($found)
-       $clean = ($found -replace '\s+',' ').Trim()
-       if($clean -match '(?i)enter fully qualified server names\s*(?:separated by semicolons)?\s*([\w\d\.\\-]+(?:[;\s,]+[\w\d\.\\-]+)*)'){
-         $list = $matches[1].Trim(' ;,')
-         return (-not [string]::IsNullOrWhiteSpace($list))
-       }
-       return $false
+       $clean = ($found -replace '\s+',' ').Trim(' ;,')
+       return (-not [string]::IsNullOrWhiteSpace($clean))
      }
   },
 
