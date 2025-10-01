@@ -175,7 +175,8 @@
     "policy": "Domain controller: LDAP server signing requirements",
     "expected": [
       "Require signing",
-      "Требовать подпись"
+      "Требовать подпись",
+      "Требуется цифровая подпись"
     ],
     "severity": "High",
     "category": "LDAP",
@@ -183,7 +184,8 @@
     "recommendation": "Выберите значение Require signing для всех КД.",
     "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Domain controller: LDAP server signing requirements.",
     "alt_policies": [
-      "Контроллер домена: требования к подписи сервера LDAP"
+      "Контроллер домена: требования к подписи сервера LDAP",
+      "Контроллер домена: требование цифровой подписи для LDAP-сервера"
     ]
   },
   {
