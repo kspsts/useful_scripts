@@ -201,7 +201,8 @@
     "recommendation": "Установите Required для LDAP server channel binding.",
     "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Domain controller: LDAP server channel binding.",
     "alt_policies": [
-      "Контроллер домена: привязка каналов сервера LDAP"
+      "Контроллер домена: привязка каналов сервера LDAP",
+      "Контроллер домена: требования токена привязки канала для LDAP-сервера"
     ]
   },
   {
