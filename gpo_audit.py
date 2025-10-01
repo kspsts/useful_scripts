@@ -480,6 +480,7 @@ def evaluate_rules(
     include_ok: bool = False,
     include_missing: bool = False,
     missing_details: bool = False,
+    show_sources: bool = False,
 ) -> Dict[str, List[Dict[str, object]]]:
     issues: List[Dict[str, object]] = []
     missing: List[Dict[str, object]] = []
@@ -515,6 +516,11 @@ def evaluate_rules(
     for gpo in gpos:
         content = gpo["content"]
         gpo_name = gpo["name"]
+        source_label = gpo.get("source")
+        if show_sources and source_label:
+            gpo_display = f"{gpo_name} ({source_label})"
+        else:
+            gpo_display = gpo_name
         for rule in base_rules:
             if not profile_matches(rule):
                 continue
@@ -530,7 +536,8 @@ def evaluate_rules(
                         "severity": rule.severity,
                         "profiles": rule.profiles,
                         "origin": rule.origin,
-                        "gpo": gpo_name,
+                        "gpo": gpo_display,
+                        "report": source_label,
                         "found": result["found"],
                         "expected_display": rule.desired_display,
                         "status": status,
@@ -549,7 +556,7 @@ def evaluate_rules(
                         "gpos": [],
                     },
                 )
-                tracker["gpos"].append(gpo_name)
+                tracker["gpos"].append(gpo_display)
                 base_missing_record_count += 1
                 if include_missing and missing_details:
                     entry = {
@@ -559,7 +566,8 @@ def evaluate_rules(
                         "severity": rule.severity,
                         "profiles": rule.profiles,
                         "origin": rule.origin,
-                        "gpo": gpo_name,
+                        "gpo": gpo_display,
+                        "report": source_label,
                         "found": result["found"],
                         "expected_display": rule.desired_display,
                         "status": status,
@@ -577,7 +585,8 @@ def evaluate_rules(
                 "severity": rule.severity,
                 "profiles": rule.profiles,
                 "origin": rule.origin,
-                "gpo": gpo_name,
+                "gpo": gpo_display,
+                "report": source_label,
                 "found": result["found"],
                 "expected_display": rule.desired_display,
                 "status": status,
@@ -645,6 +654,11 @@ def evaluate_rules(
         for gpo in gpos:
             content = gpo["content"]
             gpo_name = gpo["name"]
+            source_label = gpo.get("source")
+            if show_sources and source_label:
+                gpo_display = f"{gpo_name} ({source_label})"
+            else:
+                gpo_display = gpo_name
             result = apply_rule(rule, content)
             if result["status"] == "Не найдено":
                 continue
@@ -656,7 +670,8 @@ def evaluate_rules(
                 "severity": rule.severity,
                 "profiles": rule.profiles,
                 "origin": rule.origin,
-                "gpo": gpo_name,
+                "gpo": gpo_display,
+                "report": source_label,
                 "found": result["found"],
                 "expected_display": rule.desired_display,
                 "status": result["status"],
@@ -882,7 +897,12 @@ def build_cli() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Сравнение настроек GPO (AllGPOs.htm) с правилами лучших практик.",
     )
-    parser.add_argument("--report", required=True, help="Путь к AllGPOs.htm, экспортированному из GPMC.")
+    parser.add_argument(
+        "--report",
+        required=True,
+        nargs="+",
+        help="Путь(и) к AllGPOs.htm, экспортированным из GPMC (можно несколько).",
+    )
     parser.add_argument("--rules", help="JSON-файл с правилами. По умолчанию gpo_rules.json рядом со скриптом.")
     parser.add_argument("--csv", help="Путь для сохранения CSV-отчёта.")
     parser.add_argument("--include-ok", action="store_true", help="Включать соответствующие правила в вывод.")
@@ -940,9 +960,10 @@ def main() -> int:
     parser = build_cli()
     args = parser.parse_args()
 
-    report_path = Path(args.report)
-    if not report_path.exists():
-        parser.error(f"Не найден файл отчёта: {report_path}")
+    report_paths = [Path(p) for p in args.report]
+    for report_path in report_paths:
+        if not report_path.exists():
+            parser.error(f"Не найден файл отчёта: {report_path}")
 
     if args.rules:
         rules_path = Path(args.rules)
@@ -989,10 +1010,16 @@ def main() -> int:
         if compliance_rules:
             rules = merge_rules(rules, compliance_rules)
 
-    try:
-        gpos = parse_report(report_path)
-    except Exception as exc:  # pragma: no cover
-        parser.error(f"Не удалось разобрать отчёт: {exc}")
+    gpos: List[Dict[str, str]] = []
+    for report_path in report_paths:
+        try:
+            parsed = parse_report(report_path)
+        except Exception as exc:  # pragma: no cover
+            parser.error(f"Не удалось разобрать отчёт {report_path}: {exc}")
+        for item in parsed:
+            entry = dict(item)
+            entry.setdefault("source", report_path.name)
+            gpos.append(entry)
 
     evaluation = evaluate_rules(
         gpos,
@@ -1001,6 +1028,7 @@ def main() -> int:
         include_ok=args.include_ok,
         include_missing=args.include_missing,
         missing_details=args.missing_details,
+        show_sources=len(report_paths) > 1,
     )
 
     total_gpos = len(gpos)
