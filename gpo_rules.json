@@ -1,0 +1,1953 @@
+[
+  {
+    "id": "NTLM.Outbound.Restrict",
+    "category": "Аутентификация",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Restrict NTLM: исходящий трафик к удалённым серверам",
+    "patterns": [
+      "Сетевая безопасность:\\s*ограничения NTLM:\\s*исходящий трафик NTLM к удаленным серверам\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Network security:\\s*Restrict NTLM:\\s*Outgoing NTLM traffic to remote servers\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Сетевая безопасность:\\s*ограничения NTLM:\\s*исходящий трафик NTLM к удаленным серверам\\s*(?:[:\\-]\\s*)?([^\\r\\n<]+)",
+      "Network security:\\s*Restrict NTLM:\\s*Outgoing NTLM traffic to remote servers\\s*(?:[:\\-]\\s*)?([^\\r\\n<]+)",
+      "<td>\\s*Сетевая безопасность: ограничения NTLM: исходящий трафик NTLM к удаленным серверам\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>",
+      "<td>\\s*Network security: Restrict NTLM: Outgoing NTLM traffic to remote servers\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>"
+    ],
+    "desired": [
+      "deny all",
+      "audit all",
+      "deny all accounts",
+      "audit all accounts",
+      "блокировать весь трафик",
+      "аудит всего трафика"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Ограничить/аудировать исходящий NTLM; исключения — через список исключений.",
+    "fix": "ПК → Параметры Windows → Параметры безопасности → Локальные политики → Параметры безопасности → «Restrict NTLM: Outgoing NTLM traffic…» → Deny all/Audit all."
+  },
+  {
+    "id": "LMCompatibility",
+    "category": "Аутентификация",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "LAN Manager authentication level",
+    "patterns": [
+      "Сетевая безопасность:\\s*уровень проверки подлинности LAN Manager\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Network security:\\s*LAN Manager authentication level\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)"
+    ],
+    "desired": [
+      "send ntlmv2 response only. refuse lm & ntlm",
+      "только ответ ntlmv2; запрещены lm и ntlm",
+      "только отправка ответа ntlmv2; отклонять lm и ntlm"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Выставить «Send NTLMv2 response only. Refuse LM & NTLM».",
+    "fix": "ПК → Параметры Windows → Параметры безопасности → Локальные политики → Параметры безопасности → «LAN Manager authentication level» → нужное значение."
+  },
+  {
+    "id": "LDAP.Client.Signing",
+    "category": "LDAP",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "LDAP client signing requirements",
+    "patterns": [
+      "Службы каталогов:\\s*LDAP.*требовать.*подпис(ь|и)\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Network security:\\s*LDAP client signing requirements\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)"
+    ],
+    "desired": [
+      "require signing",
+      "требовать подпись",
+      "require"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить «Require signing» для LDAP-клиента.",
+    "fix": "ПК → Параметры Windows → Параметры безопасности → Локальные политики → Параметры безопасности → «LDAP client signing requirements» → Require."
+  },
+  {
+    "id": "LDAP.Server.Signing",
+    "category": "LDAP",
+    "severity": "High",
+    "profiles": [
+      "DC"
+    ],
+    "title": "Domain controller: LDAP server signing requirements",
+    "patterns": [
+      "Domain controller:\\s*LDAP server signing requirements\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Контроллер домена:\\s*требования к подписи сервера LDAP\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Require signing",
+      "Требовать подпись"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "На КД требовать подпись LDAP.",
+    "fix": "ПК → Параметры Windows → Параметры безопасности → Локальные политики → Параметры безопасности → «Domain controller: LDAP server signing requirements» → Require."
+  },
+  {
+    "id": "LDAP.Server.CBT",
+    "category": "LDAP",
+    "severity": "High",
+    "profiles": [
+      "DC"
+    ],
+    "title": "Domain controller: LDAP server channel binding",
+    "patterns": [
+      "Domain controller:\\s*LDAP server channel binding\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Контроллер домена:\\s*привязка каналов сервера LDAP\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "required",
+      "требуется"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить LDAP Channel Binding (CBT) на КД.",
+    "fix": "ПК → Параметры Windows → Параметры безопасности → «Domain controller: LDAP server channel binding» → Required."
+  },
+  {
+    "id": "Kerberos.EnforceUserLogonRestrictions",
+    "category": "Kerberos",
+    "severity": "Medium",
+    "profiles": [
+      "DC"
+    ],
+    "title": "Kerberos: Enforce user logon restrictions",
+    "patterns": [
+      "Enforce user logon restrictions\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Обеспечивать ограничения входа пользователя\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить проверку ограничений входа Kerberos.",
+    "fix": "ПК → Параметры Windows → Параметры безопасности → Политики Kerberos → «Enforce user logon restrictions» → Enabled."
+  },
+  {
+    "id": "SMB.Sign.Server",
+    "category": "SMB",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Microsoft network server: Digitally sign communications (always)",
+    "patterns": [
+      "Сеть Microsoft:\\s*всегда выполнять цифровую подпись сообщений \\(сервер\\)\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Microsoft network server:\\s*Digitally sign communications\\s*\\(always\\)\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)"
+    ],
+    "desired": [
+      "enabled",
+      "включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Обязательная подпись SMB на сервере.",
+    "fix": "ПК → Параметры безопасности → «Microsoft network server: Digitally sign communications (always)» → Enabled."
+  },
+  {
+    "id": "SMB.Sign.Client",
+    "category": "SMB",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Microsoft network client: Digitally sign communications (always)",
+    "patterns": [
+      "Клиент сети Microsoft:\\s*всегда выполнять цифровую подпись сообщений \\(клиент\\)\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Microsoft network client:\\s*Digitally sign communications\\s*\\(always\\)\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)"
+    ],
+    "desired": [
+      "enabled",
+      "включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Обязательная подпись SMB на клиенте.",
+    "fix": "ПК → Параметры безопасности → «Microsoft network client: Digitally sign communications (always)» → Enabled."
+  },
+  {
+    "id": "SMB.Guest.Insecure",
+    "category": "SMB",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Enable insecure guest logons (должно быть Disabled)",
+    "patterns": [
+      "Enable insecure guest logons\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Разрешить небезопасные гостевые входы\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Disabled",
+      "Отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Запретить небезопасные гостевые входы SMB.",
+    "fix": "ПК → Адм. шаблоны → Сеть → Lanman Workstation → «Enable insecure guest logons» → Disabled."
+  },
+  {
+    "id": "SMBv1.Disable",
+    "category": "SMB",
+    "severity": "Critical",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Отключение SMBv1",
+    "patterns": [
+      "Value name\\s*SMB1\\s*Value type\\s*REG_DWORD\\s*Value data\\s*([0-9x ()]+)",
+      "Lanman(?:Server|Workstation).*?(?:SMB1|SMB 1\\.0).*?(?:value data|=)?\\s*([0-9x ()]+)",
+      "Включить протокол SMB 1\\.0.*?[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Disabled",
+      "Отключено",
+      "0",
+      "0x0"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "smbv1_disabled"
+    },
+    "recommendation": "Полностью отключить SMBv1 (клиент и сервер).",
+    "fix": "Отключить компонент «SMB 1.0/CIFS», проверить реестр: HKLM\\SYSTEM\\CCS\\Services\\LanmanServer\\Parameters\\SMB1=0."
+  },
+  {
+    "id": "Anonymous.SAM",
+    "category": "Security Options",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Network access: Do not allow anonymous enumeration of SAM accounts",
+    "patterns": [
+      "Network access:\\s*Do not allow anonymous enumeration of SAM accounts\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Сетевой доступ:\\s*запретить анонимное перечисление учетных записей SAM\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Запретить анонимное перечисление SAM.",
+    "fix": "ПК → Параметры безопасности → «Do not allow anonymous enumeration of SAM accounts» → Enabled."
+  },
+  {
+    "id": "Anonymous.SAMShares",
+    "category": "Security Options",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Network access: Do not allow anonymous enumeration of SAM accounts and shares",
+    "patterns": [
+      "Do not allow anonymous enumeration of SAM accounts and shares\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "запретить анонимное перечисление учетных записей SAM и ресурсов\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Запретить анонимное перечисление SAM и расшаренных ресурсов.",
+    "fix": "ПК → Параметры безопасности → соответствующий параметр → Enabled."
+  },
+  {
+    "id": "Anonymous.SIDName",
+    "category": "Security Options",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Network access: Allow anonymous SID/Name translation = Disabled",
+    "patterns": [
+      "Network access:\\s*Allow anonymous SID/Name translation\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Сетевой доступ:\\s*разрешить анонимное преобразование SID/имен\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Disabled",
+      "Отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Запретить преобразование SID/Name для анонимных пользователей.",
+    "fix": "ПК → Параметры безопасности → соответствующий параметр → Disabled."
+  },
+  {
+    "id": "RPC.RestrictRemoteSAM",
+    "category": "Security Options",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Network access: Restrict clients allowed to make remote calls to SAM",
+    "patterns": [
+      "Network access:\\s*Restrict clients allowed to make remote calls to SAM\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Сетевой доступ:\\s*ограничить клиентов, которым разрешено выполнять удалённые вызовы SAM\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить ограничение удалённых вызовов SAM (оставить только Administrators, Authenticated Users).",
+    "fix": "ПК → Параметры безопасности → соответствующий параметр → Enabled и задать безопасный ACL."
+  },
+  {
+    "id": "NoLMHash",
+    "category": "Security Options",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Network security: Do not store LAN Manager hash value on next password change",
+    "patterns": [
+      "Do not store LAN Manager hash value on next password change\\s*(Enabled|Disabled|Not Configured)",
+      "Не сохранять значение хэша LAN Manager.*?\\s*(Включено|Отключено|Не настроено|Не задано)"
+    ],
+    "desired": [],
+    "desired_text": "Enabled / Включено",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Не хранить LM-хэш паролей.",
+    "fix": "ПК → Параметры безопасности → «Do not store LAN Manager hash value…» → Enabled."
+  },
+  {
+    "id": "RDP.NLA",
+    "category": "RDP",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Требовать NLA для RDP",
+    "patterns": [
+      "Службы удалённых рабочих столов.*уровн(я|е) сети.*проверку подлинности\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Require user authentication for remote connections by using Network Level Authentication\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)"
+    ],
+    "desired": [
+      "enabled",
+      "включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Требовать NLA для RDP-подключений.",
+    "fix": "ПК → Адм. шаблоны → RDP → Безопасность → «Требовать NLA» → Enabled."
+  },
+  {
+    "id": "RDP.MinEncryptionLevel",
+    "category": "RDP",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "RDP: минимальный уровень шифрования",
+    "patterns": [
+      "Set client connection encryption level\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Уровень шифрования подключения.*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "High или FIPS",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "high",
+        "высок",
+        "fips"
+      ]
+    },
+    "recommendation": "Требовать High (или FIPS) для RDP.",
+    "fix": "ПК → Адм. шаблоны → RDP → Безопасность → «Уровень шифрования…»."
+  },
+  {
+    "id": "RDP.Session.Limit",
+    "category": "RDP",
+    "severity": "Low",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Ограничение параллельных RDP-сессий",
+    "patterns": [
+      "Limit number of connections\\s*[:\\-]\\s*([0-9]+)",
+      "Ограничение количества подключений\\s*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "не более 2",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_max",
+      "value": 2
+    },
+    "recommendation": "Ограничить одновременные RDP-соединения.",
+    "fix": "ПК → Адм. шаблоны → RDP → Подключения → «Ограничить число подключений»."
+  },
+  {
+    "id": "RDP.CredSSP",
+    "category": "RDP",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "CredSSP: Encryption Oracle Remediation = Force Updated Clients",
+    "patterns": [
+      "Encryption Oracle Remediation\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Устранение проблем шифрования Oracle\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Force Updated Clients / Принудительно использовать обновлённых клиентов",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "force updated",
+        "принудительно"
+      ]
+    },
+    "recommendation": "Установить параметр в Force Updated Clients для защиты CredSSP.",
+    "fix": "ПК → Адм. шаблоны → Система → Делегирование учетных данных → «Encryption Oracle Remediation» → Force Updated Clients."
+  },
+  {
+    "id": "WinRM.DisableBasic",
+    "category": "WinRM",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "WinRM: запрет Basic аутентификации",
+    "patterns": [
+      "Windows Remote Management \\(WinRM\\).*Allow Basic authentication\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Разрешить обычную проверку подлинности.*\\(WinRM.*\\)\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Разрешить обычную проверку подлинности\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "WinRM.*Allow Basic authentication\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)"
+    ],
+    "desired": [
+      "disabled",
+      "отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Отключить Basic; использовать Kerberos/NTLMv2.",
+    "fix": "ПК → Адм. шаблоны → WinRM Client/Service → «Allow Basic authentication» → Disabled."
+  },
+  {
+    "id": "WinRM.RequireEncryption",
+    "category": "WinRM",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "WinRM: Allow unencrypted traffic = Disabled",
+    "patterns": [
+      "Windows Remote Management \\(WinRM\\).*Allow unencrypted traffic\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Разрешить незашифрованный трафик.*\\(WinRM.*\\)\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Разрешить незашифрованный трафик\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "WinRM.*Allow unencrypted traffic\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)"
+    ],
+    "desired": [
+      "disabled",
+      "отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Запретить нешифрованный трафик WinRM (использовать HTTPS/TLS).",
+    "fix": "ПК → Адм. шаблоны → WinRM Client/Service → «Allow unencrypted traffic» → Disabled."
+  },
+  {
+    "id": "LLMNR.Disable",
+    "category": "Сеть",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Отключение LLMNR",
+    "patterns": [
+      "Разрешение имен.*LLMNR.*[:\\-]\\s*([^\\.;\\r\\n<]+)",
+      "Turn off Multicast Name Resolution\\s*[:\\-]\\s*([^\\.;\\r\\n<]+)"
+    ],
+    "desired": [
+      "enabled",
+      "включено",
+      "on"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить «Turn off Multicast Name Resolution».",
+    "fix": "ПК → Адм. шаблоны → Сеть → Клиент DNS → «Turn off Multicast Name Resolution» → Enabled."
+  },
+  {
+    "id": "IPv6.SourceRouting",
+    "category": "Сеть",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "IPv6: Source routing = Disabled",
+    "patterns": [
+      "TCPIP\\/Parameters\\s*DisableIPSourceRouting\\s*[:\\-]\\s*([0-9]+)",
+      "IPv6 source routing\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Disable or value ≥ 2",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "ipv6_source_routing"
+    },
+    "recommendation": "Отключить исходную маршрутизацию IPv6 (DisableIPSourceRouting=2).",
+    "fix": "ПК → Адм. шаблоны → Сеть → IPv6 → отключить source routing / Registry DisableIPSourceRouting=2."
+  },
+  {
+    "id": "DNS.DnssecValidation",
+    "category": "DNS",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "DNS Client: Enable DNSSEC validation",
+    "patterns": [
+      "Turn on DNSSEC validation\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Включить проверку DNSSEC\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить проверку DNSSEC на клиентах.",
+    "fix": "ПК → Адм. шаблоны → Сеть → DNS Client → «Turn on DNSSEC validation» → Enabled."
+  },
+  {
+    "id": "UAC.AdminApproval",
+    "category": "UAC",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "UAC: Admin Approval Mode для встроенного администратора",
+    "patterns": [
+      "User Account Control:\\s*Admin Approval Mode for the Built-in Administrator account\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Контроль учетных записей:\\s*режим одобрения администратором для встроенной учетной записи администратора\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить Admin Approval Mode для встроенного администратора.",
+    "fix": "ПК → Параметры безопасности → Локальные политики → Параметры безопасности → соответствующая настройка → Enabled."
+  },
+  {
+    "id": "UAC.Virtualize",
+    "category": "UAC",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "UAC: Virtualize file and registry write failures",
+    "patterns": [
+      "User Account Control:\\s*Virtualize file and registry write failures to per-user locations\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Контроль учетных записей:\\s*виртуализировать ошибки записи файлов и реестра в расположения пользователя\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить виртуализацию записи для совместимости приложений.",
+    "fix": "ПК → Параметры безопасности → Локальные политики → Параметры безопасности → соответствующая настройка → Enabled."
+  },
+  {
+    "id": "EventLog.SecuritySize",
+    "category": "Журналы",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Security log size ≥ 196608 KB",
+    "patterns": [
+      "Maximum security log size\\s*\\(KB\\)\\s*[:\\-]\\s*([0-9]+)",
+      "Максимальный размер журнала безопасности\\s*\\(КБ\\)\\s*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "≥ 196608 KB (192 MB)",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_min",
+      "value": 196608
+    },
+    "recommendation": "Увеличить размер журнала Security минимум до 192 МБ.",
+    "fix": "ПК → Параметры Windows → Security Settings → Event Log → Security → Maximum log size."
+  },
+  {
+    "id": "EventLog.SecurityRetention",
+    "category": "Журналы",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Security log retention = Do not overwrite (manual clear)",
+    "patterns": [
+      "Retention method for security log\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Способ хранения журнала безопасности\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Do not overwrite events (Clear logs manually)",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "do not overwrite",
+        "очищать вручную"
+      ]
+    },
+    "recommendation": "Настроить неизменяемое хранение Security log (ручная очистка).",
+    "fix": "ПК → Event Log → Security → Retention method → Do not overwrite events."
+  },
+  {
+    "id": "Password.Complexity",
+    "category": "Пароли",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Пароль должен соответствовать требованиям сложности",
+    "patterns": [
+      "<td>\\s*Password must meet complexity requirements\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>",
+      "<td>\\s*Пароль должен соответствовать требованиям сложности\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>",
+      "Password must meet complexity requirements\\s*(?:[:\\-]\\s*)?([^\\r\\n<\\s]+)",
+      "Пароль должен соответствовать требованиям сложности\\s*(?:[:\\-]\\s*)?([^\\r\\n<\\s]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить требования сложности для паролей.",
+    "fix": "ПК → Параметры безопасности → Политика паролей → «Требовать сложность паролей» → Включено."
+  },
+  {
+    "id": "Password.MinLength",
+    "category": "Пароли",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Минимальная длина пароля ≥ 14",
+    "patterns": [
+      "<td>\\s*Minimum password length\\s*</td>\\s*<td>\\s*([0-9]+)\\s*",
+      "<td>\\s*Минимальная длина пароля\\s*</td>\\s*<td>\\s*([0-9]+)\\s*",
+      "Minimum password length\\s*(?:[:\\-]\\s*)?([0-9]+)",
+      "Минимальная длина пароля\\s*(?:[:\\-]\\s*)?([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "≥ 14 символов",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_min",
+      "value": 14
+    },
+    "recommendation": "Установить минимум 14 символов (или выше).",
+    "fix": "ПК → Параметры безопасности → Политика паролей → «Minimum password length». "
+  },
+  {
+    "id": "Password.History",
+    "category": "Пароли",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "История паролей ≥ 24",
+    "patterns": [
+      "<td>\\s*Enforce password history\\s*</td>\\s*<td>\\s*([0-9]+)\\s*",
+      "<td>\\s*Запоминать историю паролей\\s*</td>\\s*<td>\\s*([0-9]+)\\s*",
+      "Enforce password history\\s*(?:[:\\-]\\s*)?([0-9]+)",
+      "Запоминать историю паролей\\s*(?:[:\\-]\\s*)?([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "≥ 24 пароля",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_min",
+      "value": 24
+    },
+    "recommendation": "Разрешить историю не менее 24 паролей.",
+    "fix": "ПК → Параметры безопасности → Политика паролей → «Enforce password history». "
+  },
+  {
+    "id": "Password.Reversible",
+    "category": "Пароли",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Не хранить пароли в обратимом виде",
+    "patterns": [
+      "<td>\\s*Store passwords using reversible encryption\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>",
+      "<td>\\s*Хранить пароли с обратимым шифрованием\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>",
+      "Store passwords using reversible encryption\\s*(?:[:\\-]\\s*)?([^\\r\\n<\\s]+)",
+      "Хранить пароли с обратимым шифрованием\\s*(?:[:\\-]\\s*)?([^\\r\\n<\\s]+)"
+    ],
+    "desired": [
+      "Disabled",
+      "Отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Отключить обратимое шифрование паролей.",
+    "fix": "ПК → Параметры безопасности → Политика паролей → «Store passwords using reversible encryption». "
+  },
+  {
+    "id": "Account.Lockout.Duration",
+    "category": "Учетные записи",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Длительность блокировки учетной записи (мин)",
+    "patterns": [
+      "Account lockout duration\\s*[:\\-]\\s*([0-9]+)",
+      "Длительность блокировки учетной записи\\s*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "15–60 минут",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_range",
+      "min": 15,
+      "max": 60
+    },
+    "recommendation": "Рекомендуется 15–60 минут.",
+    "fix": "ПК → Параметры безопасности → Политика блокировки учетных записей → «Длительность блокировки»."
+  },
+  {
+    "id": "CachedLogons",
+    "category": "Интерактивный вход",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Кэш предыдущих входов (рекомендуемо 0–1)",
+    "patterns": [
+      "Интерактивный вход.*количество предыдущих подключений к кэшу.*[:\\-]\\s*([0-9]+)",
+      "Interactive logon:\\s*Number of previous logons to cache.*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "0 (допустимо 1)",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_max",
+      "value": 1
+    },
+    "recommendation": "Минимизировать кэш входов.",
+    "fix": "ПК → Параметры безопасности → «Interactive logon: Number of previous logons to cache…» → 0 (или 1)."
+  },
+  {
+    "id": "BitLocker.RemovableDrives",
+    "category": "Шифрование",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "BitLocker: шифрование съёмных дисков",
+    "patterns": [
+      "BitLocker.*removable drives\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Шифрование съёмных дисков.*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Требовать шифрование USB-носителей.",
+    "fix": "ПК → Адм. шаблоны → Компоненты Windows → BitLocker → Съёмные диски → «Требовать шифрование…» → Enabled."
+  },
+  {
+    "id": "BitLocker.OsDrives",
+    "category": "Шифрование",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "BitLocker: требовать доп. аутентификацию при запуске",
+    "patterns": [
+      "Require additional authentication at startup\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Требовать дополнительную проверку подлинности при запуске\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить BitLocker с дополнительной аутентификацией (TPM+PIN и т.п.).",
+    "fix": "ПК → Адм. шаблоны → Компоненты Windows → BitLocker → ОС-диски → «Require additional authentication at startup» → Enabled."
+  },
+  {
+    "id": "BitLocker.FixedDrives",
+    "category": "Шифрование",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "BitLocker: шифрование фиксированных дисков",
+    "patterns": [
+      "BitLocker.*fixed data drives\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Шифрование фиксированных дисков.*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Требовать BitLocker для фиксированных дисков.",
+    "fix": "ПК → Адм. шаблоны → Компоненты Windows → BitLocker → Фиксированные диски → соответствующая политика."
+  },
+  {
+    "id": "TLS10.Disable",
+    "category": "TLS",
+    "severity": "High",
+    "profiles": [
+      "TLS"
+    ],
+    "title": "TLS 1.0: Server/Client Enabled = 0",
+    "patterns": [
+      "Protocols\\\\TLS 1\\.0\\\\(Client|Server)\\\\Enabled.*[:\\-]\\s*(0)",
+      "SCHANNEL.*TLS 1\\.0.*Enabled.*[:\\-]\\s*0"
+    ],
+    "desired": [
+      "0"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Отключить TLS 1.0 на клиенте и сервере.",
+    "fix": "Preferences → Windows Settings → Registry: ...\\SCHANNEL\\Protocols\\TLS 1.0\\(Client|Server)\\Enabled=0 (DWORD)."
+  },
+  {
+    "id": "TLS11.Disable",
+    "category": "TLS",
+    "severity": "High",
+    "profiles": [
+      "TLS"
+    ],
+    "title": "TLS 1.1: Server/Client Enabled = 0",
+    "patterns": [
+      "Protocols\\\\TLS 1\\.1\\\\(Client|Server)\\\\Enabled.*[:\\-]\\s*(0)",
+      "SCHANNEL.*TLS 1\\.1.*Enabled.*[:\\-]\\s*0"
+    ],
+    "desired": [
+      "0"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Отключить TLS 1.1 на клиенте и сервере.",
+    "fix": "Preferences → Windows Settings → Registry: ...\\SCHANNEL\\Protocols\\TLS 1.1\\(Client|Server)\\Enabled=0 (DWORD)."
+  },
+  {
+    "id": "TLS.CipherSuiteOrder",
+    "category": "TLS",
+    "severity": "Medium",
+    "profiles": [
+      "TLS"
+    ],
+    "title": "SSL Cipher Suite Order (должно быть включено)",
+    "patterns": [
+      "SSL Cipher Suite Order\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Порядок наборов шифров SSL\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Задать упорядоченный безопасный список шифров.",
+    "fix": "ПК → Параметры безопасности → «SSL Cipher Suite Order» → Enabled (со списком)."
+  },
+  {
+    "id": "TLS12.Enabled",
+    "category": "TLS",
+    "severity": "High",
+    "profiles": [
+      "TLS"
+    ],
+    "title": "TLS 1.2: Server/Client Enabled = 1",
+    "patterns": [
+      "Protocols\\\\TLS 1\\.2\\\\(Client|Server)\\\\Enabled.*[:\\-]\\s*([0-9]+)",
+      "SCHANNEL.*TLS 1\\.2.*Enabled.*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "Enabled = 1",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_equals",
+      "value": 1
+    },
+    "recommendation": "Включить TLS 1.2 на клиенте и сервере.",
+    "fix": "Preferences → Registry: ...\\SCHANNEL\\Protocols\\TLS 1.2\\(Client|Server)\\Enabled = 1 (DWORD)."
+  },
+  {
+    "id": "TLS.RC4.Disable",
+    "category": "TLS",
+    "severity": "High",
+    "profiles": [
+      "TLS"
+    ],
+    "title": "Отключить RC4 в Schannel",
+    "patterns": [
+      "SCHANNEL.*Ciphers\\\\RC4\\s*[^\\\\]*\\\\Enabled.*[:\\-]\\s*([0-9]+)",
+      "Ciphers\\\\RC4.*Enabled.*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "Enabled = 0",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_equals",
+      "value": 0
+    },
+    "recommendation": "Полностью отключить RC4 (все варианты) в Schannel.",
+    "fix": "Preferences → Registry: ...\\SCHANNEL\\Ciphers\\RC4 *\\Enabled = 0 (DWORD)."
+  },
+  {
+    "id": "Firewall.Domain.On",
+    "category": "Firewall",
+    "severity": "High",
+    "profiles": [
+      "Firewall"
+    ],
+    "title": "Windows Defender Firewall (Domain) = On",
+    "patterns": [
+      "Windows Defender Firewall: Domain Profile: State\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Брандмауэр Защитника Windows: профиль домена: состояние\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "On",
+      "Вкл",
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Брандмауэр должен быть включён в доменном профиле.",
+    "fix": "ПК → Параметры Windows → Параметры безопасности → Брандмауэр → Профиль домена → Включить."
+  },
+  {
+    "id": "Firewall.Private.On",
+    "category": "Firewall",
+    "severity": "High",
+    "profiles": [
+      "Firewall"
+    ],
+    "title": "Windows Defender Firewall (Private) = On",
+    "patterns": [
+      "Windows Defender Firewall: Private Profile: State\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Брандмауэр.*частный профиль.*состояние\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "On",
+      "Вкл",
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Брандмауэр должен быть включён в частном профиле.",
+    "fix": "ПК → Брандмауэр → Частный профиль → Включить."
+  },
+  {
+    "id": "Firewall.Public.On",
+    "category": "Firewall",
+    "severity": "High",
+    "profiles": [
+      "Firewall"
+    ],
+    "title": "Windows Defender Firewall (Public) = On",
+    "patterns": [
+      "Windows Defender Firewall: Public Profile: State\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Брандмауэр.*общедоступный профиль.*состояние\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "On",
+      "Вкл",
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Брандмауэр должен быть включён в общедоступном профиле.",
+    "fix": "ПК → Брандмауэр → Общедоступный профиль → Включить."
+  },
+  {
+    "id": "Firewall.LogDrops",
+    "category": "Firewall",
+    "severity": "Medium",
+    "profiles": [
+      "Firewall"
+    ],
+    "title": "Firewall: Log dropped packets = Yes",
+    "patterns": [
+      "Logging:\\s*Log dropped packets\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Журналы:\\s*Записывать отброшенные пакеты\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Yes",
+      "Да",
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить логирование отброшенных пакетов.",
+    "fix": "ПК → Профиль брандмауэра → Журналы → Log dropped packets → Yes."
+  },
+  {
+    "id": "Firewall.LogSize",
+    "category": "Firewall",
+    "severity": "Low",
+    "profiles": [
+      "Firewall"
+    ],
+    "title": "Firewall: Log file size (KB) >= 16384",
+    "patterns": [
+      "Log file size \\(KB\\)\\s*[:\\-]\\s*([0-9]+)",
+      "Размер файла журнала.*\\(КБ\\)\\s*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "≥ 16384 KB",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_min",
+      "value": 16384
+    },
+    "recommendation": "Увеличить размер файла журнала.",
+    "fix": "ПК → Профиль брандмауэра → Журналы → Размер файла."
+  },
+  {
+    "id": "Print.PointAndPrint.Restrictions",
+    "category": "PrintNightmare",
+    "severity": "High",
+    "profiles": [
+      "Print"
+    ],
+    "title": "Point and Print Restrictions = Enabled",
+    "patterns": [
+      "Point and Print Restrictions\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Ограничения Point and Print\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить ограничения и использовать только утверждённые сервера.",
+    "fix": "ПК → Адм. шаблоны → Принтеры → «Point and Print Restrictions» → Enabled; Warning + Elevation."
+  },
+  {
+    "id": "Print.ApprovedServers",
+    "category": "PrintNightmare",
+    "severity": "High",
+    "profiles": [
+      "Print"
+    ],
+    "title": "Package Point and Print – Approved servers (список не пустой)",
+    "patterns": [
+      "Package Point and Print.*?Approved servers.*?Enter fully qualified server names(?: separated by semicolons)?\\s*</th></tr>\\s*<tr><td>\\s*([^<]+)\\s*</td>",
+      "Package Point and Print.*?Approved servers.*?Enter fully qualified server names(?: separated by semicolons)?\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Утверждённые серверы Point and Print.*?Введите полные доменные имена серверов\\s*</th></tr>\\s*<tr><td>\\s*([^<]+)\\s*</td>",
+      "Утверждённые серверы Point and Print.*?Введите полные доменные имена серверов\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Непустой список доверенных серверов",
+    "compare": {
+      "type": "text_nonempty"
+    },
+    "normalize": "identity",
+    "recommendation": "Указать явный список доверенных принт-серверов.",
+    "fix": "ПК → Адм. шаблоны → Принтеры → «Package Point and Print – Approved servers»."
+  },
+  {
+    "id": "Print.DriverInstallRestrict",
+    "category": "PrintNightmare",
+    "severity": "High",
+    "profiles": [
+      "Print"
+    ],
+    "title": "RestrictDriverInstallationToAdministrators = Enabled",
+    "patterns": [
+      "RestrictDriverInstallationToAdministrators.*Value data\\s*([0-9x ()]+)",
+      "RestrictDriverInstallationToAdministrators\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "0x1 (1) / Enabled",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "0x1",
+        "1",
+        "enabled",
+        "включ"
+      ]
+    },
+    "recommendation": "Запретить установку драйверов неадминистраторами (требовать администратора).",
+    "fix": "Preferences → Windows Settings → Registry → HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Printers\\PointAndPrint → RestrictDriverInstallationToAdministrators = 1."
+  },
+  {
+    "id": "Print.SecurityPrompts",
+    "category": "PrintNightmare",
+    "severity": "Medium",
+    "profiles": [
+      "Print"
+    ],
+    "title": "Point and Print security prompts = Warning + Elevation",
+    "patterns": [
+      "Security Prompts: When installing drivers for a new connection:\\s*[^\\r\\n]+When updating drivers for an existing connection:\\s*[^\\r\\n]+"
+    ],
+    "desired": [],
+    "desired_text": "Show warning and elevation prompt / Показывать предупреждение и запрос повышения",
+    "normalize": "identity",
+    "compare": {
+      "type": "print_security_prompts"
+    },
+    "recommendation": "Включить предупреждения и запрос повышения для установки/обновления драйверов печати.",
+    "fix": "ПК → Адм. шаблоны → Принтеры → «Point and Print Restrictions» → Warning + Elevation для новых и обновляемых драйверов."
+  },
+  {
+    "id": "LAPS.Enable",
+    "category": "LAPS",
+    "severity": "High",
+    "profiles": [
+      "LAPS"
+    ],
+    "title": "Windows LAPS: включён и делает бэкап",
+    "patterns": [
+      "Enable password backup for LAPS\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Включить резервное копирование пароля LAPS\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить Windows LAPS и настроить ACL на чтение паролей.",
+    "fix": "ПК → Адм. шаблоны → Система → LAPS → включить политики (backup, rotation)."
+  },
+  {
+    "id": "Office.Macros.BlockInternet",
+    "category": "Office",
+    "severity": "High",
+    "profiles": [
+      "Office"
+    ],
+    "title": "Block macros from running in Office files from the Internet",
+    "patterns": [
+      "Block macros from running in Office files from the Internet\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Блокировать макросы из файлов Office из Интернета\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Блокировать макросы из Интернета.",
+    "fix": "Политики Office (Word/Excel) → Block macros from running in Office files from the Internet → Enabled."
+  },
+  {
+    "id": "Office.DDE.Disable",
+    "category": "Office",
+    "severity": "Medium",
+    "profiles": [
+      "Office"
+    ],
+    "title": "Отключить DDE",
+    "patterns": [
+      "Disable DDE\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Отключить DDE\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Отключить DDE в Office.",
+    "fix": "Политики Office → Disable DDE → Enabled."
+  },
+  {
+    "id": "Office.ProtectedView.Internet",
+    "category": "Office",
+    "severity": "Medium",
+    "profiles": [
+      "Office"
+    ],
+    "title": "Protected View для файлов из Интернета",
+    "patterns": [
+      "Enable Protected View for files originating from the Internet\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Включить защищенный режим просмотра для файлов из Интернета\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить Protected View.",
+    "fix": "Политики Office → Protected View → Enable for Internet files."
+  },
+  {
+    "id": "Browser.SmartScreen",
+    "category": "Browser",
+    "severity": "Medium",
+    "profiles": [
+      "Browser"
+    ],
+    "title": "Configure Microsoft Defender SmartScreen (Edge) = Enabled",
+    "patterns": [
+      "Configure Microsoft Defender SmartScreen\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Настроить Microsoft Defender SmartScreen\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить SmartScreen в Edge.",
+    "fix": "Адм. шаблоны → Microsoft Edge → SmartScreen → Enabled."
+  },
+  {
+    "id": "PowerShell.ScriptBlockLogging",
+    "category": "PowerShell",
+    "severity": "High",
+    "profiles": [
+      "PowerShell"
+    ],
+    "title": "PowerShell: Script Block Logging",
+    "patterns": [
+      "Turn on PowerShell Script Block Logging\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Логирование блоков скриптов\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить логирование блоков скриптов.",
+    "fix": "ПК → Адм. шаблоны → Windows PowerShell → «Turn on PowerShell Script Block Logging»."
+  },
+  {
+    "id": "PowerShell.ModuleLogging",
+    "category": "PowerShell",
+    "severity": "Medium",
+    "profiles": [
+      "PowerShell"
+    ],
+    "title": "PowerShell: Module Logging",
+    "patterns": [
+      "Turn on Module Logging\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Включить ведение журнала модулей\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить логирование модулей PowerShell.",
+    "fix": "ПК → Адм. шаблоны → Windows PowerShell → «Turn on Module Logging»."
+  },
+  {
+    "id": "PowerShell.Transcription",
+    "category": "PowerShell",
+    "severity": "Low",
+    "profiles": [
+      "PowerShell"
+    ],
+    "title": "PowerShell: Transcription",
+    "patterns": [
+      "Turn on PowerShell Transcription\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Включить транскрипцию PowerShell\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить транскрипцию для расследований.",
+    "fix": "ПК → Адм. шаблоны → Windows PowerShell → «Turn on PowerShell Transcription»."
+  },
+  {
+    "id": "PowerShell.ExecutionPolicy",
+    "category": "PowerShell",
+    "severity": "High",
+    "profiles": [
+      "PowerShell"
+    ],
+    "title": "PowerShell: Script Execution = Allow only signed",
+    "patterns": [
+      "Turn on Script Execution\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Разрешить выполнение сценариев\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Allow only signed / Разрешить только подписанные",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "allow only signed",
+        "signed scripts",
+        "подписан"
+      ]
+    },
+    "recommendation": "Ограничить выполнение сценариев PowerShell только подписанными (AllSigned).",
+    "fix": "ПК → Адм. шаблоны → Windows PowerShell → «Turn on Script Execution» → Allow only signed scripts."
+  },
+  {
+    "id": "ScriptHost.Disable",
+    "category": "Scripts",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Turn off Windows Script Host = Enabled",
+    "patterns": [
+      "Turn off Windows Script Host\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Отключить Windows Script Host\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Отключить WSH, если не требуется (снизить риск VBS/JScript).",
+    "fix": "ПК → Адм. шаблоны → Компоненты Windows → Windows Script Host → «Turn off Windows Script Host» → Enabled."
+  },
+  {
+    "id": "Defender.ASR",
+    "category": "Defender",
+    "severity": "Medium",
+    "profiles": [
+      "Defender"
+    ],
+    "title": "Attack Surface Reduction rules",
+    "patterns": [
+      "ASR rules.*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Правила сокращения поверхности атак.*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Enabled / Block",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "enabled",
+        "включ",
+        "block",
+        "блок"
+      ]
+    },
+    "recommendation": "Включить критичные правила ASR.",
+    "fix": "ПК → Адм. шаблоны → Microsoft Defender Antivirus → ASR."
+  },
+  {
+    "id": "Defender.AV.Enabled",
+    "category": "Defender",
+    "severity": "High",
+    "profiles": [
+      "Defender"
+    ],
+    "title": "Не отключать Microsoft Defender Antivirus",
+    "patterns": [
+      "Turn off Microsoft Defender Antivirus\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Отключить Защитник Microsoft Antivirus\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Disabled",
+      "Отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Не отключайте штатный антивирус (или обеспечьте эквивалент).",
+    "fix": "ПК → Адм. шаблоны → Microsoft Defender Antivirus → «Turn off Microsoft Defender Antivirus» → Disabled."
+  },
+  {
+    "id": "Defender.RTP",
+    "category": "Defender",
+    "severity": "High",
+    "profiles": [
+      "Defender"
+    ],
+    "title": "Реальное время Defender включено",
+    "patterns": [
+      "Turn off real-time protection\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Отключить защиту в режиме реального времени\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Disabled",
+      "Отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Не отключайте защиту в реальном времени.",
+    "fix": "ПК → Адм. шаблоны → Microsoft Defender Antivirus → «Turn off real-time protection» → Disabled."
+  },
+  {
+    "id": "Defender.CloudDelivered",
+    "category": "Defender",
+    "severity": "Medium",
+    "profiles": [
+      "Defender"
+    ],
+    "title": "Cloud-delivered protection = Enabled",
+    "patterns": [
+      "Turn on cloud-delivered protection\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Включить облачную защиту\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить облачную защиту Microsoft Defender.",
+    "fix": "ПК → Адм. шаблоны → Microsoft Defender Antivirus → MAPS → «Turn on cloud-delivered protection» → Enabled."
+  },
+  {
+    "id": "Defender.SampleSubmission",
+    "category": "Defender",
+    "severity": "Low",
+    "profiles": [
+      "Defender"
+    ],
+    "title": "Отправка образцов: автоматически безопасные",
+    "patterns": [
+      "Send file samples when further analysis is required\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Отправлять образцы файлов при необходимости дополнительного анализа\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Send safe samples / Отправлять безопасные образцы",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "send safe",
+        "безопасн"
+      ]
+    },
+    "recommendation": "Настроить автоматическую отправку безопасных образцов.",
+    "fix": "ПК → Адм. шаблоны → Microsoft Defender Antivirus → MAPS → «Send file samples when further analysis is required» → Send safe samples automatically."
+  },
+  {
+    "id": "AppLocker.Exe.Enforce",
+    "category": "AppLocker",
+    "severity": "High",
+    "profiles": [
+      "AppLocker"
+    ],
+    "title": "AppLocker: Enforcement for Executable rules = Enforced",
+    "patterns": [
+      "AppLocker.*Enforcement mode for Executable rules\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "AppLocker.*Режим применения для правил исполняемых файлов\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enforced",
+      "Принудительно",
+      "Да"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить применение правил AppLocker (Executable).",
+    "fix": "ПК → Параметры безопасности → Политики контроля приложений → AppLocker → Режим применения → Enforced."
+  },
+  {
+    "id": "ScreenSaver.Timeout",
+    "category": "Сессии",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Таймаут хранителя экрана (сек)",
+    "patterns": [
+      "Screen saver timeout\\s*[:\\-]\\s*([0-9]+)",
+      "Время ожидания хранителя экрана\\s*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "900/1200/1800 сек (15–30 мин)",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_in",
+      "values": [
+        900,
+        1200,
+        1800
+      ]
+    },
+    "recommendation": "Не более 15–30 минут простоя.",
+    "fix": "Пользователь → Адм. шаблоны → Персонализация → «Тайм-аут хранителя экрана»."
+  },
+  {
+    "id": "GPO.WaitForNetwork",
+    "category": "Group Policy",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Always wait for the network at computer startup and logon",
+    "patterns": [
+      "Always wait for the network at computer startup and logon\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Всегда ждать сеть при запуске и входе\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить ожидание сети, чтобы GPO применялись корректно.",
+    "fix": "ПК → Адм. шаблоны → Система → Group Policy → «Always wait for the network...» → Enabled."
+  },
+  {
+    "id": "GPO.SlowLinkDetection",
+    "category": "Group Policy",
+    "severity": "Low",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Configure slow link detection ≤ 0 (disabled)",
+    "patterns": [
+      "Configure slow link detection\\s*[:\\-]\\s*([0-9]+)",
+      "Настроить обнаружение медленной связи\\s*[:\\-]\\s*([0-9]+)"
+    ],
+    "desired": [],
+    "desired_text": "0 (выключено)",
+    "normalize": "identity",
+    "compare": {
+      "type": "int_max",
+      "value": 0
+    },
+    "recommendation": "Отключить порог медленного канала (0), чтобы политики применялись всегда.",
+    "fix": "ПК → Адм. шаблоны → Система → Group Policy → «Configure slow link detection» → 0."
+  },
+  {
+    "id": "Account.GuestDisabled",
+    "category": "Учетные записи",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Guest account status = Disabled",
+    "patterns": [
+      "Accounts:\\s*Guest account status\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Учетные записи:\\s*состояние учетной записи (?:\"|'|«)?Гость(?:\"|'|»)?\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Accounts:\\s*Guest account status\\s*(?:[:\\-]\\s*)?([^\\r\\n<]+)",
+      "Учетные записи:\\s*состояние учетной записи (?:\"|'|«)?Гость(?:\"|'|»)?\\s*(?:[:\\-]\\s*)?([^\\r\\n<]+)",
+      "<td>\\s*Accounts: Guest account status\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>",
+      "<td>\\s*Учетные записи: состояние учетной записи (?:\"|'|«)?Гость(?:\"|'|»)?\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>"
+    ],
+    "desired": [
+      "Disabled",
+      "Отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Отключить встроенную учетную запись Гость.",
+    "fix": "ПК → Параметры безопасности → Локальные политики → Параметры безопасности → «Accounts: Guest account status» → Disabled."
+  },
+  {
+    "id": "Account.BlankPasswordLimit",
+    "category": "Учетные записи",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Запрет локальных учеток с пустым паролем (только консоль)",
+    "patterns": [
+      "Accounts:\\s*Limit local account use of blank passwords to console logon only\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Учетные записи:\\s*ограничить использование пустых паролей при входе только консольно\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Учетные записи:\\s*(?:ограничить|разрешить) использование пустых паролей[^<\\r\\n]*консоль[^<\\r\\n]*\\s*(?:[:\\-]\\s*)?([^\\r\\n<]+)",
+      "<td>\\s*Accounts: Limit local account use of blank passwords to console logon only\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>",
+      "<td>\\s*Учетные записи:\\s*(?:ограничить|разрешить) использование пустых паролей[^<]*\\s*</td>\\s*<td>\\s*([^<]+)\\s*</td>"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Разрешить пустые пароли только для интерактивного входа (лучше вовсе запретить).",
+    "fix": "ПК → Параметры безопасности → «Accounts: Limit local account use of blank passwords to console logon only» → Enabled."
+  },
+  {
+    "id": "Time.NTP.Enable",
+    "category": "Time",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Windows NTP Client включен",
+    "patterns": [
+      "Enable Windows NTP Client\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Включить клиент времени Windows NTP\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить клиент NTP для синхронизации времени.",
+    "fix": "ПК → Адм. шаблоны → Система → Time Service → «Enable Windows NTP Client» → Enabled."
+  },
+  {
+    "id": "User.CantChangePassword",
+    "category": "Учетные записи",
+    "severity": "Low",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Пользователь не может менять пароль (должно быть Отключено)",
+    "patterns": [
+      "User cannot change password\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Пользователь не может изменить пароль\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Disabled",
+      "Отключено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Разрешить смену пароля пользователем (если нет исключений).",
+    "fix": "ADUC/GPMC: убрать флаг «User cannot change password»."
+  },
+  {
+    "id": "Credential.Guard",
+    "category": "Virtualization",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Включение безопасности на основе виртуализации (Credential Guard)",
+    "patterns": [
+      "Credential Guard\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Защита учетных данных\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Virtualization Based Security\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Включение безопасности на основе виртуализации \\(Credential Guard\\)\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить Credential Guard (VBS).",
+    "fix": "ПК → Адм. шаблоны → Система → Device Guard/VBS → Turn On VBS (с CredGuard)."
+  },
+  {
+    "id": "LSA.Protection",
+    "category": "Безопасность",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "LSA Protection (RunAsPPL)",
+    "patterns": [
+      "LSA Protection\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Run as LSA.*[:\\-]?\\s*([^\\r\\n<]+)",
+      "RunAsPPL.*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Enabled / RunAsPPL=1",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "enabled",
+        "включ",
+        "runasppl",
+        "1"
+      ]
+    },
+    "recommendation": "Запустить LSASS как защищённый процесс.",
+    "fix": "ПК → Адм. шаблоны → Система → «Configure LSASS to run as a protected process» или реестр HKLM\\SYSTEM\\...\\Lsa → RunAsPPL=1."
+  },
+  {
+    "id": "Kernel.DMAProtection",
+    "category": "Безопасность",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Kernel DMA Protection = Enabled",
+    "patterns": [
+      "Kernel DMA Protection\\s*[:\\-]\\s*([^\\r\\n<]+)",
+      "Защита от DMA-атак ядра\\s*[:\\-]\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [
+      "Enabled",
+      "Включено"
+    ],
+    "desired_text": "",
+    "normalize": "lower_ws",
+    "compare": null,
+    "recommendation": "Включить защиту от DMA-атак (Kernel DMA Protection).",
+    "fix": "ПК → Адм. шаблоны → Система → Device Guard / Thunderbolt → включить Kernel DMA Protection."
+  },
+  {
+    "id": "Audit.ProcessTracking",
+    "category": "Аудит",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Аудит: отслеживание процессов",
+    "patterns": [
+      "Audit(?:\\s+|.*)process tracking\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Отслеживание процессов\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Успех (минимум), лучше Успех и Отказ",
+    "normalize": "lower_ws_no_commas",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "success",
+        "успех"
+      ]
+    },
+    "recommendation": "Включить аудит запуска процессов.",
+    "fix": "ПК → Параметры безопасности → Локальная политика аудита → «Отслеживание процессов» → Успех (и Отказ)."
+  },
+  {
+    "id": "Audit.SecuritySystem",
+    "category": "Аудит",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Аудит: расширение системы безопасности",
+    "patterns": [
+      "Audit security system extension\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Аудит расширения системы безопасности\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Успех и Отказ",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_success_failure"
+    },
+    "recommendation": "Включить Success и Failure для расширения системы безопасности (LSASS).",
+    "fix": "ПК → Параметры безопасности → Локальная политика аудита → «Audit security system extension»."
+  },
+  {
+    "id": "Audit.PrivilegeUse",
+    "category": "Аудит",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Аудит: использование привилегий",
+    "patterns": [
+      "Audit(?:\\s+|.*)privilege use\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Использование привилегий\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Успех (минимум), лучше Успех и Отказ",
+    "normalize": "lower_ws_no_commas",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "success",
+        "успех"
+      ]
+    },
+    "recommendation": "Аудит использования чувствительных привилегий.",
+    "fix": "ПК → Параметры безопасности → Локальная политика аудита → «Использование привилегий»."
+  },
+  {
+    "id": "Audit.AccountLogon",
+    "category": "Аудит",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Аудит: вход в учетную запись",
+    "patterns": [
+      "Audit account logon events\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Аудит входа в учетную запись\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Успех и Отказ",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_success_failure"
+    },
+    "recommendation": "Включить Success и Failure для входов учетных записей.",
+    "fix": "ПК → Параметры безопасности → Локальная политика аудита → «Audit account logon events»."
+  },
+  {
+    "id": "Audit.AccountManagement",
+    "category": "Аудит",
+    "severity": "High",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Аудит: управление учетными записями",
+    "patterns": [
+      "Audit account management\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Аудит управления учетными записями\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Успех и Отказ",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_success_failure"
+    },
+    "recommendation": "Логировать управление учетными записями.",
+    "fix": "ПК → Параметры безопасности → Локальная политика аудита → «Audit account management»."
+  },
+  {
+    "id": "Audit.ObjectAccess",
+    "category": "Аудит",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Аудит: доступ к объектам",
+    "patterns": [
+      "Audit object access\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Аудит доступа к объектам\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Успех и Отказ (минимум Успех)",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_any",
+      "tokens": [
+        "success",
+        "успех"
+      ]
+    },
+    "recommendation": "Включить аудит доступа к объектам для критичных ресурсов.",
+    "fix": "ПК → Параметры безопасности → Локальная политика аудита → «Audit object access»."
+  },
+  {
+    "id": "Audit.PolicyChange",
+    "category": "Аудит",
+    "severity": "Medium",
+    "profiles": [
+      "Base"
+    ],
+    "title": "Аудит: изменение политики",
+    "patterns": [
+      "Audit policy change\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Аудит изменения политики\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Успех и Отказ",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_success_failure"
+    },
+    "recommendation": "Логировать изменения политики безопасности.",
+    "fix": "ПК → Параметры безопасности → Локальная политика аудита → «Audit policy change»."
+  },
+  {
+    "id": "Audit.DirectoryService",
+    "category": "Аудит",
+    "severity": "Medium",
+    "profiles": [
+      "DC"
+    ],
+    "title": "Аудит: доступ к службе каталогов",
+    "patterns": [
+      "Audit directory service access\\s*[:\\-]?\\s*([^\\r\\n<]+)",
+      "Аудит доступа к службе каталогов\\s*[:\\-]?\\s*([^\\r\\n<]+)"
+    ],
+    "desired": [],
+    "desired_text": "Успех и Отказ",
+    "normalize": "lower_ws",
+    "compare": {
+      "type": "text_success_failure"
+    },
+    "recommendation": "На контроллерах домена включить аудит доступа к AD.",
+    "fix": "ПК → Параметры безопасности → Локальная политика аудита → «Audit directory service access»."
+  }
+]
