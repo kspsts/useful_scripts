@@ -167,7 +167,7 @@
     "recommendation": "Включите параметр \"Require signing\" для всех клиентов.",
     "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → LDAP client signing requirements.",
     "alt_policies": [
-      "Сетевая безопасность: требования к подписи клиента LDAP"
+      "Сетевая безопасность: требования цифровой подписи для LDAP-клиента"
     ]
   },
   {
