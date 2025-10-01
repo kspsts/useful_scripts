@@ -487,8 +487,6 @@ def evaluate_rules(
     ok_items: List[Dict[str, object]] = []
 
     base_missing_tracker: Dict[str, Dict[str, object]] = {}
-    base_missing_record_count = 0
-    aggregated_missing_entries: List[Dict[str, object]] = []
     missing_summary_entries: List[Dict[str, object]] = []
     missing_aggregated_count = 0
     hidden_missing_records = 0
@@ -554,12 +552,12 @@ def evaluate_rules(
                     {
                         "rule": rule,
                         "gpos": [],
+                        "details": [],
                     },
                 )
                 tracker["gpos"].append(gpo_display)
-                base_missing_record_count += 1
                 if include_missing and missing_details:
-                    entry = {
+                    detail_entry = {
                         "rule_id": rule.id,
                         "title": rule.title,
                         "category": rule.category,
@@ -575,7 +573,7 @@ def evaluate_rules(
                         "fix": rule.fix,
                         "notes": result["note"] or rule.notes,
                     }
-                    missing.append(entry)
+                    tracker.setdefault("details", []).append(detail_entry)
                 continue
 
             entry = {
@@ -597,20 +595,26 @@ def evaluate_rules(
             issues.append(entry)
 
     # Построение агрегированного списка для базовых правил
+    total_gpos = len(gpos)
+
     for tracker in base_missing_tracker.values():
         rule: Rule = tracker["rule"]  # type: ignore[assignment]
         gpo_list: List[str] = tracker["gpos"]  # type: ignore[assignment]
         count = len(gpo_list)
+        if total_gpos == 0 or count < total_gpos:
+            continue
         sample = gpo_list[:3]
         sample_display = ", ".join(sample)
         if count > len(sample):
             sample_display = sample_display + (", …" if sample_display else "…")
-        if count <= 1 and sample_display:
-            gpo_display = sample_display
+        if total_gpos == 1 and gpo_list:
+            gpo_display = gpo_list[0]
+        elif count == total_gpos:
+            gpo_display = "Все GPO"
         else:
-            gpo_display = "Несколько GPO"
+            gpo_display = sample_display or "Несколько GPO"
         summary_note = (
-            f"Параметр не обнаружен в {count} GPO"
+            f"Параметр не обнаружен ни в одном из {count} GPO"
             + (f" (например: {', '.join(sample[:3])})" if sample else "")
         )
         aggregated_entry = {
@@ -630,21 +634,16 @@ def evaluate_rules(
             "missing_count": count,
             "missing_examples": sample,
         }
-        aggregated_missing_entries.append(aggregated_entry)
-    missing_aggregated_count += len(aggregated_missing_entries)
-
-    if include_missing:
-        if missing_details:
-            missing_summary_entries.extend(aggregated_missing_entries)
-        else:
-            missing.extend(aggregated_missing_entries)
-    else:
-        missing_summary_entries.extend(aggregated_missing_entries)
-
-    if not include_missing or not missing_details:
-        hidden_missing_records += base_missing_record_count
-
-    total_gpos = len(gpos)
+        missing_summary_entries.append(aggregated_entry)
+        missing_aggregated_count += 1
+        details = tracker.get("details", [])
+        if include_missing:
+            if missing_details and details:
+                missing.extend(details)
+            elif not missing_details:
+                missing.append(aggregated_entry)
+        if not (include_missing and missing_details and details):
+            hidden_missing_records += count
 
     for rule in compliance_rules:
         if not profile_matches(rule):
@@ -682,12 +681,18 @@ def evaluate_rules(
             if result["status"] == "OK":
                 if include_ok:
                     ok_items.append(entry)
-            elif result["status"] == "Не найдено":
-                if include_missing and missing_details:
-                    missing.append(entry)
             else:
                 issues.append(entry)
         if not found_any:
+            gpo_infos = []
+            for gpo in gpos:
+                name = gpo["name"]
+                source_label = gpo.get("source")
+                if show_sources and source_label:
+                    display_name = f"{name} ({source_label})"
+                else:
+                    display_name = name
+                gpo_infos.append((display_name, source_label))
             comp_entry = {
                 "rule_id": rule.id,
                 "title": rule.title,
@@ -703,14 +708,36 @@ def evaluate_rules(
                 "fix": rule.fix,
                 "notes": rule.notes or note_missing,
                 "missing_count": total_gpos,
-                "missing_examples": [],
+                "missing_examples": [info[0] for info in gpo_infos[:3]],
             }
             missing_aggregated_count += 1
-            if include_missing and not missing_details:
-                missing.append(comp_entry)
-            else:
-                missing_summary_entries.append(comp_entry)
-            if not missing_details:
+            missing_summary_entries.append(comp_entry)
+            if include_missing:
+                if missing_details:
+                    detail_entries = []
+                    for gpo_display, source_label in gpo_infos:
+                        detail_entries.append(
+                            {
+                                "rule_id": rule.id,
+                                "title": rule.title,
+                                "category": rule.category,
+                                "severity": rule.severity,
+                                "profiles": rule.profiles,
+                                "origin": rule.origin,
+                                "gpo": gpo_display,
+                                "report": source_label,
+                                "found": "",
+                                "expected_display": rule.desired_display,
+                                "status": "Не найдено",
+                                "recommendation": rule.recommendation,
+                                "fix": rule.fix,
+                                "notes": rule.notes or note_missing,
+                            }
+                        )
+                    missing.extend(detail_entries)
+                else:
+                    missing.append(comp_entry)
+            if not (include_missing and missing_details):
                 hidden_missing_records += total_gpos
 
     return {
