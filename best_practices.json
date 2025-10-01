@@ -222,6 +222,22 @@
     ]
   },
   {
+    "id": "LSA.Protection",
+    "policy": "Configure LSASS to run as a protected process",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "LSASS без RunAsPPL уязвим для извлечения секретов (LSA Secrets, Kerberos Tickets).",
+    "recommendation": "Включите RunAsPPL для LSASS на всех критичных системах.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → System → LSA → «Configure LSASS to run as a protected process» → Enabled или реестр HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa → RunAsPPL=1.",
+    "alt_policies": [
+      "Настройка LSASS для запуска как защищенного процесса"
+    ]
+  },
+  {
     "id": "SMB_SIGN_SERVER",
     "policy": "Microsoft network server: Digitally sign communications (always)",
     "expected": [
@@ -378,6 +394,81 @@
     "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows Remote Management (WinRM) Client/Service → Allow unencrypted traffic → Disabled.",
     "alt_policies": [
       "Разрешить незашифрованный трафик"
+    ]
+  },
+  {
+    "id": "Audit.AccountLogon",
+    "policy": "Audit account logon events",
+    "expected_regex": [
+      "(?i)(?=.*(success|успех))(?=.*(failure|отказ))"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Без логирования входов пользователей расследовать компрометацию практически невозможно.",
+    "recommendation": "Включите Success и Failure для Audit account logon events.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Account Logon → Audit Account Logon → Success и Failure.",
+    "alt_policies": [
+      "Аудит входа в учетную запись"
+    ]
+  },
+  {
+    "id": "Audit.AccountManagement",
+    "policy": "Audit account management",
+    "expected_regex": [
+      "(?i)(?=.*(success|успех))(?=.*(failure|отказ))"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Изменения учетных записей должны фиксироваться для последующего расследования.",
+    "recommendation": "Включите Success и Failure для Audit account management.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Account Management → Audit Account Management → Success и Failure.",
+    "alt_policies": [
+      "Аудит управления учетными записями"
+    ]
+  },
+  {
+    "id": "Audit.PrivilegeUse",
+    "policy": "Audit privilege use",
+    "expected_regex": [
+      "(?i)(success|успех)"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Использование чувствительных привилегий (SeDebugPrivilege и др.) должно фиксироваться минимум по Success.",
+    "recommendation": "Включите Success (рекомендуется Success и Failure) для Audit privilege use.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Detailed Tracking → Audit Privilege Use → как минимум Success.",
+    "alt_policies": [
+      "Аудит использования привилегий"
+    ]
+  },
+  {
+    "id": "Audit.ProcessTracking",
+    "policy": "Audit process tracking",
+    "expected_regex": [
+      "(?i)(success|успех)"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Отслеживание процессов нужно для видимости запуска подозрительных программ.",
+    "recommendation": "Включите как минимум Success для Audit process tracking.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Detailed Tracking → Audit Process Creation → Success (и Failure при необходимости).",
+    "alt_policies": [
+      "Аудит отслеживания процессов"
+    ]
+  },
+  {
+    "id": "Audit.SecuritySystem",
+    "policy": "Audit security system extension",
+    "expected_regex": [
+      "(?i)(?=.*(success|успех))(?=.*(failure|отказ))"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "События расширения системы безопасности фиксируют операции LSASS/SSPI и критичны для расследований.",
+    "recommendation": "Включите Success и Failure для Audit security system extension.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → System → Audit Security System Extension → Success и Failure.",
+    "alt_policies": [
+      "Аудит расширения системы безопасности"
     ]
   }
 ]
