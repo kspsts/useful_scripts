@@ -158,7 +158,8 @@
     "policy": "Network security: LDAP client signing requirements",
     "expected": [
       "Require signing",
-      "Требовать подпись"
+      "Требовать подпись",
+      "Требуется цифровая подпись"
     ],
     "severity": "High",
     "category": "LDAP",
