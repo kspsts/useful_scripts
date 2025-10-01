@@ -7,7 +7,7 @@
       "Только ответ NTLMv2; запрещены LM и NTLM",
       "Send NTLMv2 response only. Refuse LM & NTLM",
       "Только отправка ответа NTLMv2; отклонять LM и NTLM",
-      "Отправлять только NTLMv2-ответы. Отказывать LM и NTLM"
+      "Отправлять только NTLMv2-ответ. Отказывать LM и NTLM"
     ],
     "severity": "High",
     "category": "Аутентификация",
