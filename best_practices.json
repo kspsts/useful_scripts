@@ -202,7 +202,7 @@
     "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Domain controller: LDAP server channel binding.",
     "alt_policies": [
       "Контроллер домена: привязка каналов сервера LDAP",
-      "Контроллер домена: требования токена привязки канала для LDAP-сервера"
+      "Контроллер домена: требования к токенам привязки канала для LDAP-сервера"
     ]
   },
   {
