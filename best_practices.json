@@ -1,0 +1,378 @@
+[
+  {
+    "id": "LM_COMPATIBILITY",
+    "policy": "Network security: LAN Manager authentication level",
+    "expected": [
+      "Send NTLMv2 response only",
+      "Только ответ NTLMv2; запрещены LM и NTLM",
+      "Send NTLMv2 response only. Refuse LM & NTLM",
+      "Только отправка ответа NTLMv2; отклонять LM и NTLM"
+    ],
+    "severity": "High",
+    "category": "Аутентификация",
+    "notes": "Уровень аутентификации должен блокировать LM/NTLM.",
+    "recommendation": "Установите значение \"Send NTLMv2 response only. Refuse LM & NTLM\".",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → LAN Manager authentication level.",
+    "alt_policies": [
+      "Сетевая безопасность: уровень проверки подлинности LAN Manager"
+    ]
+  },
+  {
+    "id": "NO_LM_HASH",
+    "policy": "Network security: Do not store LAN Manager hash value on next password change",
+    "expected": [
+      "Включено",
+      "Enabled"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Хранение LM-хэшей делает пароли уязвимыми.",
+    "recommendation": "Включите параметр, чтобы исключить генерацию LM-хэшей.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Do not store LAN Manager hash value on next password change → Enabled.",
+    "alt_policies": [
+      "Сетевая безопасность: не сохранять значение хэша LAN Manager при следующей смене пароля"
+    ]
+  },
+  {
+    "id": "ACCOUNT_LOCKOUT_THRESHOLD",
+    "policy": "Account lockout threshold",
+    "expected": [
+      "5 invalid logon attempts",
+      "10 invalid logon attempts"
+    ],
+    "severity": "Medium",
+    "category": "Password Policy",
+    "notes": "Нулевой порог не блокирует подбор пароля.",
+    "recommendation": "Выберите значение 5–10 попыток в зависимости от политики безопасности.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Account Lockout Policy → Account lockout threshold.",
+    "alt_policies": [
+      "Порог блокировки учетной записи"
+    ],
+    "compare": {
+      "type": "int_range",
+      "min": 5,
+      "max": 10
+    },
+    "desired_text": "5–10 invalid logon attempts"
+  },
+  {
+    "id": "PASSWORD_HISTORY",
+    "policy": "Enforce password history",
+    "expected": [
+      "24",
+      "24 passwords remembered",
+      "24 пароля"
+    ],
+    "severity": "Medium",
+    "category": "Password Policy",
+    "notes": "Малое значение позволяет часто повторять пароли.",
+    "recommendation": "Установите минимум 24 запоминаемых пароля.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Enforce password history.",
+    "alt_policies": [
+      "Запоминать историю паролей"
+    ],
+    "compare": {
+      "type": "int_min",
+      "value": 24
+    },
+    "desired_text": "≥ 24 passwords remembered"
+  },
+  {
+    "id": "PASSWORD_COMPLEXITY",
+    "policy": "Password must meet complexity requirements",
+    "expected": [
+      "Включено",
+      "Enabled"
+    ],
+    "severity": "High",
+    "category": "Password Policy",
+    "notes": "Отключенная сложность позволяет подбирать простые пароли.",
+    "recommendation": "Включите требование сложности пароля для всех доменных политик.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Password must meet complexity requirements.",
+    "expected_regex": [
+      "(?i)enabled",
+      "(?i)включено"
+    ],
+    "alt_policies": [
+      "Пароли должны соответствовать требованиям сложности"
+    ]
+  },
+  {
+    "id": "PASSWORD_MIN_LENGTH",
+    "policy": "Minimum password length",
+    "expected": [
+      "16",
+      "14",
+      "14 символов",
+      "14 characters",
+      "15"
+    ],
+    "severity": "High",
+    "category": "Password Policy",
+    "notes": "Пароли короче 14 символов легче взломать перебором.",
+    "recommendation": "Установите минимальную длину пароля не менее 14 символов (рекомендуется 15+).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Minimum password length.",
+    "compare": {
+      "type": "int_min",
+      "value": 14
+    },
+    "alt_policies": [
+      "Минимальная длина пароля"
+    ]
+  },
+  {
+    "id": "FORCE_LOGOFF",
+    "policy": "Network security: Force logoff when logon hours expire",
+    "expected": [
+      "Включено",
+      "Enabled"
+    ],
+    "severity": "Low",
+    "category": "Security Options",
+    "notes": "Без принудительного завершения сеансы продолжаются после разрешённого времени.",
+    "recommendation": "Включите, чтобы пользователи не работали вне разрешённых часов.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Force logoff when logon hours expire.",
+    "alt_policies": [
+      "Сетевая безопасность: завершать сеанс при истечении времени входа"
+    ]
+  },
+  {
+    "id": "NTLM_OUTBOUND_RESTRICT",
+    "policy": "Network security: Restrict NTLM: Outgoing NTLM traffic to remote servers",
+    "expected_regex": [
+      "(?i)^(deny|audit) all( accounts)?$",
+      "(?i)^(блокировать|аудит).*весь трафик$"
+    ],
+    "severity": "High",
+    "category": "Аутентификация",
+    "notes": "Исходящий NTLM следует блокировать или аудитировать для минимизации атаки Relay.",
+    "recommendation": "Установите Deny all accounts (или Audit all accounts при поэтапном внедрении).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Restrict NTLM: Outgoing NTLM traffic to remote servers.",
+    "alt_policies": [
+      "Сетевая безопасность: ограничения NTLM: исходящий трафик NTLM к удаленным серверам"
+    ]
+  },
+  {
+    "id": "LDAP_CLIENT_SIGNING",
+    "policy": "Network security: LDAP client signing requirements",
+    "expected": [
+      "Require signing",
+      "Требовать подпись"
+    ],
+    "severity": "High",
+    "category": "LDAP",
+    "notes": "Без подписи LDAP-клиент уязвим к атакам посредника.",
+    "recommendation": "Включите параметр \"Require signing\" для всех клиентов.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → LDAP client signing requirements.",
+    "alt_policies": [
+      "Сетевая безопасность: требования к подписи клиента LDAP"
+    ]
+  },
+  {
+    "id": "LDAP_SERVER_SIGNING",
+    "policy": "Domain controller: LDAP server signing requirements",
+    "expected": [
+      "Require signing",
+      "Требовать подпись"
+    ],
+    "severity": "High",
+    "category": "LDAP",
+    "notes": "Контроллер домена должен требовать подпись LDAP для защиты трафика.",
+    "recommendation": "Выберите значение Require signing для всех КД.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Domain controller: LDAP server signing requirements.",
+    "alt_policies": [
+      "Контроллер домена: требования к подписи сервера LDAP"
+    ]
+  },
+  {
+    "id": "LDAP_SERVER_CBT",
+    "policy": "Domain controller: LDAP server channel binding",
+    "expected": [
+      "Required",
+      "Требуется"
+    ],
+    "severity": "High",
+    "category": "LDAP",
+    "notes": "Channel Binding Token защищает от Relay-атак на TLS-сессии LDAP.",
+    "recommendation": "Установите Required для LDAP server channel binding.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Domain controller: LDAP server channel binding.",
+    "alt_policies": [
+      "Контроллер домена: привязка каналов сервера LDAP"
+    ]
+  },
+  {
+    "id": "KERBEROS_ENFORCE_RESTRICTIONS",
+    "policy": "Kerberos: Enforce user logon restrictions",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "Kerberos",
+    "notes": "Kerberos должен учитывать ограничения входа пользователей.",
+    "recommendation": "Включите опцию Enforce user logon restrictions на всех КД.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Kerberos Policy → Enforce user logon restrictions.",
+    "alt_policies": [
+      "Kerberos: обеспечивать ограничения входа пользователя"
+    ]
+  },
+  {
+    "id": "SMB_SIGN_SERVER",
+    "policy": "Microsoft network server: Digitally sign communications (always)",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "SMB",
+    "notes": "Подпись SMB защищает от подмены трафика между клиентом и сервером.",
+    "recommendation": "Принудительно включите подпись на стороне сервера.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Microsoft network server: Digitally sign communications (always).",
+    "alt_policies": [
+      "Сеть Microsoft: всегда выполнять цифровую подпись сообщений (сервер)"
+    ]
+  },
+  {
+    "id": "SMB_SIGN_CLIENT",
+    "policy": "Microsoft network client: Digitally sign communications (always)",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "SMB",
+    "notes": "Клиент SMB тоже должен проверять подпись сообщений.",
+    "recommendation": "Включите подпись на стороне клиентов сети Microsoft.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Microsoft network client: Digitally sign communications (always).",
+    "alt_policies": [
+      "Клиент сети Microsoft: всегда выполнять цифровую подпись сообщений (клиент)"
+    ]
+  },
+  {
+    "id": "SMB_INSECURE_GUEST",
+    "policy": "Enable insecure guest logons",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "SMB",
+    "notes": "Небезопасные гостевые входы позволяют обходить аутентификацию SMB.",
+    "recommendation": "Запретите insecure guest logons для рабочих станций и серверов.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Network → Lanman Workstation → Enable insecure guest logons → Disabled.",
+    "alt_policies": [
+      "Разрешить небезопасные гостевые входы"
+    ]
+  },
+  {
+    "id": "SMB_V1_DISABLE",
+    "policy": "SMB 1.0/CIFS: Enabled",
+    "expected_regex": [
+      "(?i)(disabled|отключ|0x?0)"
+    ],
+    "severity": "Critical",
+    "category": "SMB",
+    "notes": "SMBv1 содержит критические уязвимости и должен быть отключён.",
+    "recommendation": "Удалите компонент SMB 1.0/CIFS и установите значение Enabled=0 в реестре.",
+    "fix": "Control Panel → Turn Windows features on or off → SMB 1.0/CIFS; Registry HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\\SMB1=0.",
+    "alt_policies": [
+      "SMB 1.0/CIFS: включено"
+    ]
+  },
+  {
+    "id": "ANON_SAM_ENUM",
+    "policy": "Network access: Do not allow anonymous enumeration of SAM accounts",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Анонимное перечисление SAM облегчает разведку злоумышленнику.",
+    "recommendation": "Разрешите доступ только аутентифицированным пользователям.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Network access: Do not allow anonymous enumeration of SAM accounts.",
+    "alt_policies": [
+      "Сетевой доступ: запрещать перечисление учетных записей SAM анонимными пользователями"
+    ]
+  },
+  {
+    "id": "ANON_SAM_SHARES_ENUM",
+    "policy": "Network access: Do not allow anonymous enumeration of SAM accounts and shares",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Анонимный просмотр учётных записей и ресурсов повышает риск бокового перемещения.",
+    "recommendation": "Запретите анонимный доступ к SAM и shared-папкам.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Do not allow anonymous enumeration of SAM accounts and shares.",
+    "alt_policies": [
+      "Сетевой доступ: запрещать перечисление учетных записей и общих ресурсов SAM анонимными пользователями"
+    ]
+  },
+  {
+    "id": "ANON_SID_NAME",
+    "policy": "Network access: Allow anonymous SID/Name translation",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Перевод SID без аутентификации раскрывает структуру домена.",
+    "recommendation": "Отключите Allow anonymous SID/Name translation.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Network access: Allow anonymous SID/Name translation.",
+    "alt_policies": [
+      "Сетевой доступ: разрешить анонимное сопоставление SID/имени"
+    ]
+  },
+  {
+    "id": "RPC_RESTRICT_REMOTE_SAM",
+    "policy": "Network access: Restrict clients allowed to make remote calls to SAM",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Без ограничения удалённых вызовов SAM возможен сбор данных об учетках.",
+    "recommendation": "Включите политику и оставьте в списке только безопасные группы (Administrators, Authenticated Users).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Network access: Restrict clients allowed to make remote calls to SAM.",
+    "alt_policies": [
+      "Сетевой доступ: ограничить клиентов, которым разрешено выполнять удалённые вызовы SAM"
+    ]
+  },
+  {
+    "id": "WINRM_BASIC_DISABLED",
+    "policy": "Allow Basic authentication",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "Medium",
+    "category": "WinRM",
+    "notes": "Basic-аутентификация в WinRM передаёт пароль в удобном для перехвата виде.",
+    "recommendation": "Отключите Basic и используйте Kerberos/Certificate auth.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows Remote Management (WinRM) Client/Service → Allow Basic authentication → Disabled.",
+    "alt_policies": [
+      "Разрешить базовую проверку подлинности"
+    ]
+  },
+  {
+    "id": "WINRM_UNENCRYPTED_DISABLED",
+    "policy": "Allow unencrypted traffic",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "WinRM",
+    "notes": "Нешифрованный WinRM позволяет перехватывать команды и учётные данные.",
+    "recommendation": "Запретите незашифрованный трафик и используйте HTTPS/WinRM over TLS.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows Remote Management (WinRM) Client/Service → Allow unencrypted traffic → Disabled.",
+    "alt_policies": [
+      "Разрешить незашифрованный трафик"
+    ]
+  }
+]
