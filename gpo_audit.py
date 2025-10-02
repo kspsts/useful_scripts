@@ -1016,7 +1016,6 @@ def export_html(
 
     issues = evaluation.get("issues", [])
     missing = evaluation.get("missing", [])
-    missing_summary = evaluation.get("missing_summary", [])
     ok_items = evaluation.get("ok", [])
     missing_stats = evaluation.get("missing_stats", {}) or {}
     hidden_details = int(missing_stats.get("hidden_details", 0) or 0)
@@ -1027,7 +1026,6 @@ def export_html(
     issues_count = len(issues)
     missing_count = len(missing)
     ok_count = len(ok_items)
-    missing_summary_count = len(missing_summary)
 
     css = """
 body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
@@ -1054,7 +1052,6 @@ code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
         f"<li><strong>Количество файлов отчёта:</strong> {len(report_list)}</li>",
         f"<li><strong>Обработано GPO:</strong> {total_gpos}</li>",
         f"<li><strong>Несоответствий:</strong> {issues_count}</li>",
-        f"<li><strong>Правил без совпадений (агрегировано):</strong> {missing_summary_count}</li>",
     ]
     if include_missing:
         summary_items.append(f"<li><strong>Записей 'Не найдено':</strong> {missing_count}</li>")
@@ -1112,24 +1109,6 @@ code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
             ],
             empty_message="Нет записей со статусом 'Не найдено'.",
         )
-
-    missing_summary_table = render_table(
-        "Правила без совпадений (агрегировано)",
-        missing_summary,
-        [
-            ("severity", "Критичность", 0),
-            ("rule_id", "Правило"),
-            ("origin", "Набор правил"),
-            ("category", "Категория"),
-            ("title", "Название"),
-            ("missing_count", "Количество GPO"),
-            ("missing_examples", "Примеры", 400),
-            ("expected_display", "Ожидалось", 600),
-            ("recommendation", "Рекомендация", 700),
-            ("notes", "Примечание", 700),
-        ],
-        empty_message="Все правила найдены в отчётах.",
-    )
 
     ok_table = ""
     if include_ok:
@@ -1213,7 +1192,6 @@ code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
         "</section>",
         issues_table,
         missing_table,
-        missing_summary_table,
         ok_table,
         compliance_block,
         "<footer class='note'>Отчёт сформирован скриптом gpo_audit.py.</footer>",
