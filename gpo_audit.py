@@ -7,6 +7,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set
 
@@ -66,6 +67,18 @@ def truncate_value(value: str, limit: int = 400) -> str:
     if len(value) <= limit:
         return value
     return value[:limit].rstrip() + " …"
+
+
+def _html_escape(value: object, limit: Optional[int] = 800) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        value = ", ".join(str(v) for v in value if str(v).strip())
+    text = str(value)
+    if limit is not None and limit > 0 and len(text) > limit:
+        text = truncate_value(text, limit)
+    escaped = html.escape(text, quote=True)
+    return escaped.replace("\n", "<br>")
 
 
 @dataclass
@@ -450,6 +463,11 @@ def apply_rule(rule: Rule, content: str) -> Dict[str, object]:
         }
 
     normalized = normalize_text(found_value, rule.normalize_code)
+    special_note: Optional[str] = None
+    norm_lower = normalized.casefold()
+    if rule.id == "LDAP.Server.CBT":
+        if "если поддерживается" in norm_lower or "if supported" in norm_lower:
+            special_note = "Выбрано 'Если поддерживается'; рекомендуется 'Требуется'."
     ok = False
     if rule.compare:
         ok = run_compare(rule.compare, found_value, normalized)
@@ -465,7 +483,10 @@ def apply_rule(rule: Rule, content: str) -> Dict[str, object]:
                     ok = True
                     break
 
-    note = "" if ok else "Значение отличается от рекомендуемого"
+    if ok:
+        note = ""
+    else:
+        note = special_note or "Значение отличается от рекомендуемого"
     return {
         "status": "OK" if ok else "Не ОК",
         "found": truncate_value(found_value),
@@ -920,6 +941,290 @@ def export_csv(path: Path, rows: Sequence[Dict[str, object]]) -> None:
             writer.writerow({key: row.get(key, "") for key in fieldnames})
 
 
+def export_html(
+    path: Path,
+    evaluation: Dict[str, Sequence[Dict[str, object]]],
+    *,
+    include_ok: bool,
+    include_missing: bool,
+    missing_details: bool,
+    total_gpos: int,
+    report_paths: Sequence[Path],
+    compliance_summary: Optional[Dict[str, object]] = None,
+    compliance_min_severity: Optional[str] = None,
+) -> None:
+    def render_table(
+        title: str,
+        rows: Sequence[Dict[str, object]],
+        columns: Sequence[Sequence[object]],
+        empty_message: str = "Нет записей.",
+    ) -> str:
+        if not rows:
+            return (
+                "<section class='block'>"
+                f"<h2>{html.escape(title, quote=True)}</h2>"
+                f"<p>{html.escape(empty_message, quote=True)}</p>"
+                "</section>"
+            )
+
+        header_cells = []
+        for column in columns:
+            key = column[0]
+            header = column[1]
+            header_cells.append(f"<th data-key='{html.escape(str(key), quote=True)}'>{_html_escape(header, None)}</th>")
+
+        body_rows: List[str] = []
+        status_map = {
+            "не ок": "status-issue",
+            "не найдено": "status-missing",
+            "ok": "status-ok",
+        }
+        for row in rows:
+            severity_value = (row.get("severity") or "").casefold()
+            status_value = (row.get("status") or "").casefold()
+            classes: List[str] = []
+            if severity_value:
+                classes.append(f"severity-{severity_value}")
+            if status_value in status_map:
+                classes.append(status_map[status_value])
+            class_attr = f" class='{' '.join(classes)}'" if classes else ""
+
+            cells: List[str] = []
+            for column in columns:
+                key = column[0]
+                limit = 800
+                if len(column) > 2 and column[2] is not None:
+                    limit = int(column[2]) or 0
+                elif len(column) > 2 and column[2] is None:
+                    limit = 0
+                value = row.get(key, "")
+                effective_limit = None if limit == 0 else limit
+                cells.append(f"<td>{_html_escape(value, effective_limit)}</td>")
+            body_rows.append(f"<tr{class_attr}>{''.join(cells)}</tr>")
+
+        return (
+            "<section class='block'>"
+            f"<h2>{html.escape(title, quote=True)}</h2>"
+            "<div class='table-wrapper'>"
+            "<table>"
+            f"<thead><tr>{''.join(header_cells)}</tr></thead>"
+            f"<tbody>{''.join(body_rows)}</tbody>"
+            "</table>"
+            "</div>"
+            "</section>"
+        )
+
+    issues = evaluation.get("issues", [])
+    missing = evaluation.get("missing", [])
+    missing_summary = evaluation.get("missing_summary", [])
+    ok_items = evaluation.get("ok", [])
+    missing_stats = evaluation.get("missing_stats", {}) or {}
+    hidden_details = int(missing_stats.get("hidden_details", 0) or 0)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    report_list = [str(path) for path in report_paths]
+
+    issues_count = len(issues)
+    missing_count = len(missing)
+    ok_count = len(ok_items)
+    missing_summary_count = len(missing_summary)
+
+    css = """
+body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
+h1 { margin-bottom: 0.5em; }
+section.block { margin-bottom: 32px; }
+.meta { margin: 0; padding-left: 18px; }
+.meta li { margin: 4px 0; }
+.table-wrapper { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 14px; }
+th, td { border: 1px solid #d0d7de; padding: 8px 10px; vertical-align: top; text-align: left; }
+thead th { background: #f6f8fa; }
+tbody tr:nth-child(even) { background: #fbfbfb; }
+tbody tr.status-issue { background: #fff3f3; }
+tbody tr.status-missing { background: #fffaf0; }
+tbody tr.status-ok { background: #f2fbf2; }
+.severity-critical td:first-child, .severity-high td:first-child { font-weight: bold; }
+code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
+.sources { padding-left: 18px; }
+.note { color: #6e7781; }
+""".strip()
+
+    summary_items = [
+        f"<li><strong>Дата формирования:</strong> {html.escape(timestamp, quote=True)}</li>",
+        f"<li><strong>Количество файлов отчёта:</strong> {len(report_list)}</li>",
+        f"<li><strong>Обработано GPO:</strong> {total_gpos}</li>",
+        f"<li><strong>Несоответствий:</strong> {issues_count}</li>",
+        f"<li><strong>Правил без совпадений (агрегировано):</strong> {missing_summary_count}</li>",
+    ]
+    if include_missing:
+        summary_items.append(f"<li><strong>Записей 'Не найдено':</strong> {missing_count}</li>")
+        if not missing_details:
+            summary_items.append(
+                "<li class='note'>Записи 'Не найдено' агрегированы по правилам. Используйте --missing-details для детализации.</li>"
+            )
+    if include_ok:
+        summary_items.append(f"<li><strong>Соответствий (OK):</strong> {ok_count}</li>")
+    if hidden_details:
+        hint = "--missing-details" if include_missing else "--include-missing --missing-details"
+        summary_items.append(
+            f"<li class='note'>Детали для {hidden_details} сочетаний правило/GPO скрыты. Запустите скрипт с {html.escape(hint, quote=True)} для полного вывода.</li>"
+        )
+
+    sources_html = "".join(f"<li>{html.escape(item, quote=True)}</li>" for item in report_list) or "<li>—</li>"
+
+    issues_table = render_table(
+        "Правила с несоответствиями",
+        issues,
+        [
+            ("severity", "Критичность", 0),
+            ("status", "Статус", 0),
+            ("rule_id", "Правило"),
+            ("origin", "Набор правил"),
+            ("category", "Категория"),
+            ("title", "Название"),
+            ("gpo", "GPO"),
+            ("found", "Найдено", 800),
+            ("expected_display", "Ожидалось", 600),
+            ("recommendation", "Рекомендация", 700),
+            ("fix", "Как исправить", 700),
+            ("notes", "Примечание", 700),
+        ],
+        empty_message="Несоответствий не обнаружено.",
+    )
+
+    missing_table = ""
+    if include_missing:
+        missing_table = render_table(
+            "Подробности по статусу 'Не найдено'",
+            missing,
+            [
+                ("severity", "Критичность", 0),
+                ("status", "Статус", 0),
+                ("rule_id", "Правило"),
+                ("origin", "Набор правил"),
+                ("category", "Категория"),
+                ("title", "Название"),
+                ("gpo", "GPO"),
+                ("expected_display", "Ожидалось", 600),
+                ("recommendation", "Рекомендация", 700),
+                ("fix", "Как исправить", 700),
+                ("notes", "Примечание", 700),
+            ],
+            empty_message="Нет записей со статусом 'Не найдено'.",
+        )
+
+    missing_summary_table = render_table(
+        "Правила без совпадений (агрегировано)",
+        missing_summary,
+        [
+            ("severity", "Критичность", 0),
+            ("rule_id", "Правило"),
+            ("origin", "Набор правил"),
+            ("category", "Категория"),
+            ("title", "Название"),
+            ("missing_count", "Количество GPO"),
+            ("missing_examples", "Примеры", 400),
+            ("expected_display", "Ожидалось", 600),
+            ("recommendation", "Рекомендация", 700),
+            ("notes", "Примечание", 700),
+        ],
+        empty_message="Все правила найдены в отчётах.",
+    )
+
+    ok_table = ""
+    if include_ok:
+        ok_table = render_table(
+            "Совпадения (OK)",
+            ok_items,
+            [
+                ("severity", "Критичность", 0),
+                ("status", "Статус", 0),
+                ("rule_id", "Правило"),
+                ("origin", "Набор правил"),
+                ("category", "Категория"),
+                ("title", "Название"),
+                ("gpo", "GPO"),
+                ("found", "Найдено", 800),
+                ("expected_display", "Ожидалось", 600),
+                ("notes", "Примечание", 700),
+            ],
+            empty_message="Совпадения отсутствуют (или не были включены).",
+        )
+
+    compliance_block = ""
+    if compliance_summary:
+        by_severity = compliance_summary.get("by_severity", {}) or {}
+        rows = []
+        for severity_name, data in by_severity.items():
+            rows.append(
+                {
+                    "severity": severity_name,
+                    "total": data.get("total", 0),
+                    "ok": data.get("ok", 0),
+                    "issues": data.get("issues", 0),
+                    "missing": data.get("missing", 0),
+                }
+            )
+        rows.sort(key=lambda item: SEVERITY_ORDER.get(str(item.get("severity", "")).casefold(), len(SEVERITY_ORDER)))
+        compliance_table = render_table(
+            "Комплаенс",
+            rows,
+            [
+                ("severity", "Критичность", 0),
+                ("total", "Всего проверок", 0),
+                ("ok", "OK", 0),
+                ("issues", "Не ОК", 0),
+                ("missing", "Не найдено", 0),
+            ],
+            empty_message="Нет проверок комплаенса в текущем отчёте.",
+        )
+        score = compliance_summary.get("score")
+        min_sev = compliance_min_severity or compliance_summary.get("min_severity", "")
+        compliance_meta = []
+        if score is not None:
+            compliance_meta.append(f"<li><strong>Итоговый балл:</strong> {score}%</li>")
+        if min_sev:
+            compliance_meta.append(
+                f"<li><strong>Минимальная критичность:</strong> {html.escape(str(min_sev), quote=True)}</li>"
+            )
+        compliance_block = (
+            "<section class='block'>"
+            "<h2>Комплаенс (дополнительные проверки)</h2>"
+            f"<ul class='meta'>{''.join(compliance_meta) or '<li>—</li>'}</ul>"
+            f"{compliance_table}"
+            "</section>"
+        )
+
+    html_parts = [
+        "<!DOCTYPE html>",
+        "<html lang='ru'>",
+        "<head>",
+        "<meta charset='utf-8'>",
+        "<title>GPO Audit Report</title>",
+        f"<style>{css}</style>",
+        "</head>",
+        "<body>",
+        "<h1>Отчёт по аудиту GPO</h1>",
+        "<section class='block'>",
+        "<h2>Сводка</h2>",
+        f"<ul class='meta'>{''.join(summary_items)}</ul>",
+        "<h3>Источники отчётов</h3>",
+        f"<ul class='sources'>{sources_html}</ul>",
+        "</section>",
+        issues_table,
+        missing_table,
+        missing_summary_table,
+        ok_table,
+        compliance_block,
+        "<footer class='note'>Отчёт сформирован скриптом gpo_audit.py.</footer>",
+        "</body>",
+        "</html>",
+    ]
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(html_parts), encoding="utf-8")
+
+
 def build_cli() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Сравнение настроек GPO (AllGPOs.htm) с правилами лучших практик.",
@@ -932,6 +1237,7 @@ def build_cli() -> argparse.ArgumentParser:
     )
     parser.add_argument("--rules", help="JSON-файл с правилами. По умолчанию gpo_rules.json рядом со скриптом.")
     parser.add_argument("--csv", help="Путь для сохранения CSV-отчёта.")
+    parser.add_argument("--html", help="Путь для сохранения HTML-отчёта.")
     parser.add_argument("--include-ok", action="store_true", help="Включать соответствующие правила в вывод.")
     parser.add_argument(
         "--include-missing",
@@ -1075,6 +1381,7 @@ def main() -> int:
     )
 
     combined_entries = collect_entries(evaluation)
+    compliance_summary: Optional[Dict[str, object]] = None
     if any(entry.get("origin") == "compliance" for entry in combined_entries):
         print()
         compliance_summary = summarize_compliance(combined_entries, args.compliance_min_severity)
@@ -1101,6 +1408,20 @@ def main() -> int:
     )
     print()
     print(_color_text(summary_text, COLOR_HEADER, sys.stdout.isatty()))
+
+    if args.html:
+        export_html(
+            Path(args.html),
+            evaluation,
+            include_ok=args.include_ok,
+            include_missing=args.include_missing,
+            missing_details=args.missing_details,
+            total_gpos=total_gpos,
+            report_paths=report_paths,
+            compliance_summary=compliance_summary,
+            compliance_min_severity=args.compliance_min_severity,
+        )
+        print(_color_text(f"HTML-отчёт сохранён: {args.html}", COLOR_HEADER, sys.stdout.isatty()))
 
     if args.csv:
         rows = []
