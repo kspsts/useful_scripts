@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-  Аудит сервисных УЗ в OU (read-only, без прав админа). Консоль — в приоритете.
+  Аудит сервисных УЗ в OU (read-only, без админских прав). Консоль — в приоритете.
 .DESCRIPTION
-  Собирает SPN, делегацию, UAC-флаги, группы, базовые даты. Выводит удобную сводку и подробности.
-  Экспорт CSV/JSON — только по флагу -ExportCsv.
+  Собирает SPN, делегацию, UAC-флаги, группы (в т.ч. вложенные), базовые даты.
+  Выводит сводку/детали; CSV/JSON по флагу -ExportCsv.
 #>
 
 param(
-  [string]$ServiceOU = "OU=Service,DC=company,DC=local",
+  [string]$ServiceOU    = "OU=Service,DC=company,DC=local",
   [string]$ExportFolder = "C:\temp",
   [switch]$ExportCsv
 )
@@ -27,10 +27,10 @@ function SafeCount($x){
 
 function Decode-UAC([int]$uac){
   [ordered]@{
-    ACCOUNTDISABLE        = [bool]($uac -band 0x2)
-    DONT_EXPIRE_PASSWORD  = [bool]($uac -band 0x10000)
-    SMARTCARD_REQUIRED    = [bool]($uac -band 0x40000)
-    TRUSTED_FOR_DELEGATION= [bool]($uac -band 0x80000)
+    ACCOUNTDISABLE         = [bool]($uac -band 0x2)
+    DONT_EXPIRE_PASSWORD   = [bool]($uac -band 0x10000)
+    SMARTCARD_REQUIRED     = [bool]($uac -band 0x40000)
+    TRUSTED_FOR_DELEGATION = [bool]($uac -band 0x80000)
   }
 }
 
@@ -53,14 +53,42 @@ function Get-UsersFromOU_ADSI {
   return $list
 }
 
+# ---------------- ГРУППЫ (ADSI tokenGroups) ----------------
+function Get-TokenGroupNames_ADSI {
+  param([System.DirectoryServices.DirectoryEntry]$DE)
+  $names = @()
+  try {
+    $tg = $DE.Properties["tokenGroups"]
+    if($tg){
+      foreach($sidBytes in $tg){
+        try{
+          $sid = New-Object System.Security.Principal.SecurityIdentifier ($sidBytes, 0)
+          $nt  = $sid.Translate([System.Security.Principal.NTAccount])
+          $names += $nt.Value  # DOMAIN\Group или BUILTIN\Administrators
+        } catch { }
+      }
+    }
+  } catch { }
+  return $names
+}
+
 function Get-GroupsForUser($obj,$useAD){
   if($useAD){
-    try { return (Get-ADPrincipalGroupMembership -Identity $obj.SamAccountName -ErrorAction Stop).Name }
-    catch { return @() }
+    try {
+      return (Get-ADPrincipalGroupMembership -Identity $obj.SamAccountName -ErrorAction Stop).Name
+    } catch { return @() }
   } else {
+    # 1) Все группы через tokenGroups (учтёт вложенность)
+    $all = @()
+    if($obj.ADSI){
+      $all = Get-TokenGroupNames_ADSI -DE $obj.ADSI
+      $short = @()
+      foreach($n in $all){ if($n){ $short += ($n -replace '^[^\\]+\\','') } }  # убираем DOMAIN\
+      if((SafeCount $short) -gt 0){ return $short }
+    }
+    # 2) fallback: прямые группы
     $r=@()
-    try { $obj.ADSI.Groups() | ForEach-Object { $r += $_.Name } }
-    catch {
+    try { $obj.ADSI.Groups() | ForEach-Object { $r += $_.Name } } catch {
       if($obj.MemberOf){ $obj.MemberOf -split ';' | ForEach-Object { $r += ($_ -replace '^CN=([^,]+).*$','$1') } }
     }
     return $r
@@ -86,7 +114,7 @@ function AggregateInfo($sam,$adsi,$useAD){
     MemberOf              = ''
     Groups                = ''
     RiskScore             = 0
-    RiskLevel             = 'LOW'   # дефолт без UNKNOWN
+    RiskLevel             = 'LOW'
     Flag_SPNS             = $false
     Flag_Delegation       = $false
     Flag_DontExpire       = $false
@@ -125,6 +153,7 @@ function AggregateInfo($sam,$adsi,$useAD){
       $out.HomeDirectory         = $p["homeDirectory"][0]
       $out.LogonWorkstations     = $p["logonWorkstations"][0]
       $out.MemberOf              = ($p["memberOf"] -join '; ')
+
       $adsiProxy = [PSCustomObject]@{
         SamAccountName = $sam
         MemberOf       = $out.MemberOf
@@ -133,16 +162,23 @@ function AggregateInfo($sam,$adsi,$useAD){
       $out.Groups = (Get-GroupsForUser -obj $adsiProxy -useAD $false) -join '; '
     }
 
-    # --- риск-скoring ---
+    # --- риск-скоры ---
     $score = 0
     if($out.ServicePrincipalNames){ $score += 40 }
     if($out.AllowedToDelegateTo){   $score += 40 }
     if($out.UAC.DONT_EXPIRE_PASSWORD){ $score += 20 }
 
-    $priv = @("Domain Admins","Enterprise Admins","Administrators","Backup Operators","Account Operators","Schema Admins","Group Policy Creator Owners")
+    $priv = @(
+      'Domain Admins','Enterprise Admins','Schema Admins',
+      'Administrators','Account Operators','Backup Operators',
+      'Server Operators','Print Operators','Group Policy Creator Owners'
+    )
     $hasPriv = $false
     if($out.Groups){
-      foreach($g in $priv){ if($out.Groups -like "*$g*"){ $hasPriv=$true; $score += 50; break } }
+      $grpArr = @($out.Groups -split ';') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+      foreach($g in $priv){
+        if($grpArr -contains $g -or ($grpArr | Where-Object { $_ -like "*\$g" })) { $hasPriv = $true; $score += 50; break }
+      }
     }
 
     $out.RiskScore       = $score
@@ -212,9 +248,9 @@ function Print-Account($obj){
 Ensure-Folder $ExportFolder
 $useAD = Try-ImportAD
 
-$users = @()
-$adsiList = @()
-$adsiMap  = @{}
+$users   = @()
+$adsiList= @()
+$adsiMap = @{}
 
 if($useAD){
   try {
