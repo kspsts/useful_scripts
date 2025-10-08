@@ -1,9 +1,6 @@
 <#
 .SYNOPSIS
-  Аудит сервисных УЗ в OU (read-only, без админских прав). Консоль — в приоритете.
-.DESCRIPTION
-  Собирает SPN, делегацию, UAC-флаги, группы (в т.ч. вложенные), базовые даты.
-  Выводит сводку/детали; CSV/JSON по флагу -ExportCsv.
+  Аудит сервисных УЗ (read-only). Учитывает вложенные группы через tokenGroups и проверяет привилегии по SID.
 #>
 
 param(
@@ -17,21 +14,16 @@ Set-StrictMode -Version Latest
 # ---------------- УТИЛИТЫ ----------------
 function Ensure-Folder($p){ if(-not (Test-Path $p)){ New-Item -Path $p -ItemType Directory -Force | Out-Null } }
 function Try-ImportAD { try { Import-Module ActiveDirectory -ErrorAction Stop; return $true } catch { return $false } }
+function SafeCount($x){ if($null -eq $x){0} elseif($x -is [array]){$x.Count} elseif($x -is [System.Collections.IEnumerable] -and -not ($x -is [string])){@($x).Count} else {1} }
+function Decode-UAC([int]$uac){ [ordered]@{ ACCOUNTDISABLE=[bool]($uac -band 0x2); DONT_EXPIRE_PASSWORD=[bool]($uac -band 0x10000); SMARTCARD_REQUIRED=[bool]($uac -band 0x40000); TRUSTED_FOR_DELEGATION=[bool]($uac -band 0x80000) } }
 
-function SafeCount($x){
-  if ($null -eq $x) { return 0 }
-  if ($x -is [array]) { return $x.Count }
-  if ($x -is [System.Collections.IEnumerable] -and -not ($x -is [string])) { return @($x).Count }
-  return 1
-}
-
-function Decode-UAC([int]$uac){
-  [ordered]@{
-    ACCOUNTDISABLE         = [bool]($uac -band 0x2)
-    DONT_EXPIRE_PASSWORD   = [bool]($uac -band 0x10000)
-    SMARTCARD_REQUIRED     = [bool]($uac -band 0x40000)
-    TRUSTED_FOR_DELEGATION = [bool]($uac -band 0x80000)
-  }
+# Конвертация byte[] → SID string
+function Convert-SidBytesToString {
+  param([byte[]]$Bytes)
+  try{
+    $sid = New-Object System.Security.Principal.SecurityIdentifier ($Bytes,0)
+    return $sid.Value
+  } catch { return $null }
 }
 
 # ---------------- ЧТЕНИЕ ПОЛЬЗОВАТЕЛЕЙ ----------------
@@ -47,55 +39,101 @@ function Get-UsersFromOU_ADSI {
         ADSI = $_
       }
     }
-  } catch {
-    Write-Warning "ADSI: не удалось прочитать $OUPath: $($_.Exception.Message)"
-  }
+  } catch { Write-Warning "ADSI: не удалось прочитать $OUPath: $($_.Exception.Message)" }
   return $list
 }
 
-# ---------------- ГРУППЫ (ADSI tokenGroups) ----------------
-function Get-TokenGroupNames_ADSI {
-  param([System.DirectoryServices.DirectoryEntry]$DE)
-  $names = @()
-  try {
-    $tg = $DE.Properties["tokenGroups"]
-    if($tg){
-      foreach($sidBytes in $tg){
-        try{
-          $sid = New-Object System.Security.Principal.SecurityIdentifier ($sidBytes, 0)
-          $nt  = $sid.Translate([System.Security.Principal.NTAccount])
-          $names += $nt.Value  # DOMAIN\Group или BUILTIN\Administrators
-        } catch { }
+# ---------------- tokenGroups (AD/ADSI) ----------------
+# AD-модуль: берём tokenGroups(…); возвращаем массив SID-строк
+function Get-TokenGroupsSID_AD {
+  param([string]$Sam)
+  try{
+    # tokenGroups может вернуть SecurityIdentifier или byte[] — нормализуем к строкам
+    $raw = (Get-ADUser -Identity $Sam -Properties tokenGroups,tokenGroupsGlobalAndUniversal -ErrorAction Stop)
+    $vals = @()
+    foreach($prop in @('tokenGroups','tokenGroupsGlobalAndUniversal')){
+      $tg = $raw.$prop
+      if($tg){
+        foreach($v in $tg){
+          if($v -is [byte[]]){ $vals += (Convert-SidBytesToString -Bytes $v) }
+          elseif($v -is [System.Security.Principal.SecurityIdentifier]){ $vals += $v.Value }
+          elseif([string]::IsNullOrEmpty($v) -eq $false){ $vals += [string]$v }
+        }
       }
     }
-  } catch { }
-  return $names
+    return ($vals | Where-Object { $_ }) | Select-Object -Unique
+  } catch { return @() }
 }
 
-function Get-GroupsForUser($obj,$useAD){
-  if($useAD){
-    try {
-      return (Get-ADPrincipalGroupMembership -Identity $obj.SamAccountName -ErrorAction Stop).Name
-    } catch { return @() }
-  } else {
-    # 1) Все группы через tokenGroups (учтёт вложенность)
-    $all = @()
-    if($obj.ADSI){
-      $all = Get-TokenGroupNames_ADSI -DE $obj.ADSI
-      $short = @()
-      foreach($n in $all){ if($n){ $short += ($n -replace '^[^\\]+\\','') } }  # убираем DOMAIN\
-      if((SafeCount $short) -gt 0){ return $short }
+# ADSI: читаем tokenGroups → SID-строки
+function Get-TokenGroupsSID_ADSI {
+  param([System.DirectoryServices.DirectoryEntry]$DE)
+  $out=@()
+  try{
+    $tg = $DE.Properties["tokenGroups"]
+    if($tg){
+      foreach($b in $tg){
+        $s = Convert-SidBytesToString -Bytes $b
+        if($s){ $out += $s }
+      }
     }
-    # 2) fallback: прямые группы
-    $r=@()
-    try { $obj.ADSI.Groups() | ForEach-Object { $r += $_.Name } } catch {
-      if($obj.MemberOf){ $obj.MemberOf -split ';' | ForEach-Object { $r += ($_ -replace '^CN=([^,]+).*$','$1') } }
-    }
-    return $r
+  } catch {}
+  $out | Select-Object -Unique
+}
+
+# Имя групп (чисто для печати), но не для логики риска
+function Get-GroupNamesFromSIDs {
+  param([string[]]$SidList)
+  $names=@()
+  foreach($sidStr in $SidList){
+    try{
+      $sid = New-Object System.Security.Principal.SecurityIdentifier $sidStr
+      $nt  = $sid.Translate([System.Security.Principal.NTAccount])  # DOMAIN\Name или BUILTIN\...
+      $names += $nt.Value
+    } catch {}
   }
+  $names | Select-Object -Unique
 }
 
 # ---------------- АГРЕГАТОР ----------------
+# Привилегии по RID (локализации не мешают):
+# Domain Admins = *-512, Enterprise Admins = *-519, Schema Admins = *-518,
+# Administrators (BUILTIN) = S-1-5-32-544, Account Operators = S-1-5-32-548,
+# Server Operators = S-1-5-32-549, Print Operators = S-1-5-32-550,
+# Backup Operators = S-1-5-32-551, Group Policy Creator Owners = *-520
+$PrivRID = @{
+  'DomainAdmins'               = 512
+  'EnterpriseAdmins'           = 519
+  'SchemaAdmins'               = 518
+  'GroupPolicyCreatorOwners'   = 520
+}
+$BuiltinSIDs = @(
+  'S-1-5-32-544', # Administrators
+  'S-1-5-32-548', # Account Operators
+  'S-1-5-32-549', # Server Operators
+  'S-1-5-32-550', # Print Operators
+  'S-1-5-32-551'  # Backup Operators
+)
+
+function Has-PrivBySID {
+  param([string[]]$SidList)
+  if(-not $SidList){ return $false }
+  # BUILTIN
+  if($SidList | Where-Object { $_ -in $BuiltinSIDs }){ return $true }
+  # Domain/Forest RIDs
+  foreach($sid in $SidList){
+    if(-not $sid){ continue }
+    # Смотрим последний RID
+    $parts = $sid.Split('-')
+    if($parts.Count -lt 2){ continue }
+    $rid = $parts[-1]
+    if($rid -match '^\d+$'){
+      if([int]$rid -in $PrivRID.Values){ return $true }
+    }
+  }
+  return $false
+}
+
 function AggregateInfo($sam,$adsi,$useAD){
   $out = [ordered]@{
     SamAccountName        = $sam
@@ -112,7 +150,8 @@ function AggregateInfo($sam,$adsi,$useAD){
     HomeDirectory         = $null
     LogonWorkstations     = $null
     MemberOf              = ''
-    Groups                = ''
+    Groups                = ''   # имена (для печати)
+    TokenGroupSIDs        = @()  # сиды (для логики риска)
     RiskScore             = 0
     RiskLevel             = 'LOW'
     Flag_SPNS             = $false
@@ -137,7 +176,12 @@ function AggregateInfo($sam,$adsi,$useAD){
       $out.HomeDirectory         = $u.HomeDirectory
       $out.LogonWorkstations     = $u.LogonWorkstations
       $out.MemberOf              = ($u.MemberOf -join '; ')
-      $out.Groups                = (Get-GroupsForUser -obj $u -useAD $true) -join '; '
+      # tokenGroups (SID-ы → имена)
+      $sids  = Get-TokenGroupsSID_AD -Sam $sam
+      $out.TokenGroupSIDs = $sids
+      $names = Get-GroupNamesFromSIDs -SidList $sids
+      # для краткости берём только имена без DOMAIN\ префикса при печати
+      $out.Groups = (($names | ForEach-Object { $_ -replace '^[^\\]+\\','' }) -join '; ')
     } else {
       if(-not $adsi){ throw "ADSI DirectoryEntry is null for $sam" }
       $p = $adsi.Properties
@@ -153,13 +197,11 @@ function AggregateInfo($sam,$adsi,$useAD){
       $out.HomeDirectory         = $p["homeDirectory"][0]
       $out.LogonWorkstations     = $p["logonWorkstations"][0]
       $out.MemberOf              = ($p["memberOf"] -join '; ')
-
-      $adsiProxy = [PSCustomObject]@{
-        SamAccountName = $sam
-        MemberOf       = $out.MemberOf
-        ADSI           = $adsi
-      }
-      $out.Groups = (Get-GroupsForUser -obj $adsiProxy -useAD $false) -join '; '
+      # tokenGroups (SID-ы → имена)
+      $sids  = Get-TokenGroupsSID_ADSI -DE $adsi
+      $out.TokenGroupSIDs = $sids
+      $names = Get-GroupNamesFromSIDs -SidList $sids
+      $out.Groups = (($names | ForEach-Object { $_ -replace '^[^\\]+\\','' }) -join '; ')
     }
 
     # --- риск-скоры ---
@@ -167,19 +209,9 @@ function AggregateInfo($sam,$adsi,$useAD){
     if($out.ServicePrincipalNames){ $score += 40 }
     if($out.AllowedToDelegateTo){   $score += 40 }
     if($out.UAC.DONT_EXPIRE_PASSWORD){ $score += 20 }
-
-    $priv = @(
-      'Domain Admins','Enterprise Admins','Schema Admins',
-      'Administrators','Account Operators','Backup Operators',
-      'Server Operators','Print Operators','Group Policy Creator Owners'
-    )
-    $hasPriv = $false
-    if($out.Groups){
-      $grpArr = @($out.Groups -split ';') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-      foreach($g in $priv){
-        if($grpArr -contains $g -or ($grpArr | Where-Object { $_ -like "*\$g" })) { $hasPriv = $true; $score += 50; break }
-      }
-    }
+    # привилегии по SID
+    $hasPriv = Has-PrivBySID -SidList $out.TokenGroupSIDs
+    if($hasPriv){ $score += 50 }
 
     $out.RiskScore       = $score
     $out.RiskLevel       = if($score -ge 70){"HIGH"} elseif($score -ge 40){"MEDIUM"} else {"LOW"}
@@ -202,42 +234,26 @@ function Print-Account($obj){
   Write-Host "$title" -ForegroundColor Cyan
   Write-Host ("-" * ([Math]::Min(80,$title.Length + 4))) -ForegroundColor DarkCyan
 
-  switch ($obj.RiskLevel) {
-    "HIGH"   { $color = 'Red' }
-    "MEDIUM" { $color = 'Yellow' }
-    default  { $color = 'Green' }
-  }
-  Write-Host ("Risk: {0}  (score: {1})" -f $obj.RiskLevel, $obj.RiskScore) -ForegroundColor $color
+  switch ($obj.RiskLevel) { "HIGH"{$c='Red'} "MEDIUM"{$c='Yellow'} default{$c='Green'} }
+  Write-Host ("Risk: {0}  (score: {1})" -f $obj.RiskLevel,$obj.RiskScore) -ForegroundColor $c
 
-  $flags = @()
-  if($obj.Flag_SPNS)       { $flags += "SPN" }
-  if($obj.Flag_Delegation) { $flags += "DELEG" }
-  if($obj.Flag_DontExpire) { $flags += "DONT_EXPIRE" }
-  if($obj.Flag_PrivGroup)  { $flags += "PRIV_GRP" }
-  Write-Host ("Flags: {0}" -f (($flags -join ', '))) -ForegroundColor Gray
+  $flags=@(); if($obj.Flag_SPNS){$flags+='SPN'}; if($obj.Flag_Delegation){$flags+='DELEG'}; if($obj.Flag_DontExpire){$flags+='DONT_EXPIRE'}; if($obj.Flag_PrivGroup){$flags+='PRIV_GRP'}
+  Write-Host ("Flags: {0}" -f ($flags -join ', ')) -ForegroundColor Gray
 
   Write-Host ("Created: {0} | LastPwdSet: {1} | Mail: {2}" -f ($obj.WhenCreated,$obj.PasswordLastSet,$obj.Mail)) -ForegroundColor DarkGray
   if($obj.LogonWorkstations){ Write-Host ("LogonWorkstations: {0}" -f $obj.LogonWorkstations) -ForegroundColor DarkGray }
   if($obj.HomeDirectory){ Write-Host ("HomeDirectory: {0}" -f $obj.HomeDirectory) -ForegroundColor DarkGray }
 
-  if($obj.ServicePrincipalNames){
-    Write-Host "ServicePrincipalNames:" -ForegroundColor Yellow
-    @($obj.ServicePrincipalNames -split ';') | ForEach-Object { if($_){ Write-Host "  $_" -ForegroundColor Yellow } }
-  }
-  if($obj.AllowedToDelegateTo){
-    Write-Host "AllowedToDelegateTo:" -ForegroundColor Yellow
-    @($obj.AllowedToDelegateTo -split ';') | ForEach-Object { if($_){ Write-Host "  $_" -ForegroundColor Yellow } }
-  }
-  if($obj.TrustedForDelegation){ Write-Host ("TrustedForDelegation: {0}" -f $obj.TrustedForDelegation) -ForegroundColor Yellow }
+  if($obj.ServicePrincipalNames){ Write-Host "ServicePrincipalNames:" -ForegroundColor Yellow; @($obj.ServicePrincipalNames -split ';') | ForEach-Object { if($_){ Write-Host "  $_" -ForegroundColor Yellow } } }
+  if($obj.AllowedToDelegateTo){   Write-Host "AllowedToDelegateTo:"   -ForegroundColor Yellow; @($obj.AllowedToDelegateTo -split ';') | ForEach-Object { if($_){ Write-Host "  $_" -ForegroundColor Yellow } } }
+  if($obj.TrustedForDelegation){  Write-Host ("TrustedForDelegation: {0}" -f $obj.TrustedForDelegation) -ForegroundColor Yellow }
 
   if($obj.Groups){
-    $grp = @($obj.Groups -split ';')
+    $grp = @($obj.Groups -split ';') | Where-Object { $_ }
     if((SafeCount $grp) -gt 0){
       Write-Host "Groups (first 6):" -ForegroundColor Gray
-      $grp | Where-Object { $_ } | Select-Object -First 6 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
-      if((SafeCount $grp) -gt 6){
-        Write-Host ("  ...(+" + ((SafeCount $grp)-6) + " more)") -ForegroundColor DarkGray
-      }
+      $grp | Select-Object -First 6 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+      if((SafeCount $grp) -gt 6){ Write-Host ("  ...(+" + ((SafeCount $grp)-6) + " more)") -ForegroundColor DarkGray }
     }
   }
 
@@ -248,12 +264,10 @@ function Print-Account($obj){
 Ensure-Folder $ExportFolder
 $useAD = Try-ImportAD
 
-$users   = @()
-$adsiList= @()
-$adsiMap = @{}
+$users=@(); $adsiList=@(); $adsiMap=@{}
 
 if($useAD){
-  try {
+  try{
     $users = Get-ADUser -Filter * -SearchBase $ServiceOU -SearchScope Subtree -Properties samAccountName |
              Select-Object -ExpandProperty SamAccountName
     $users = @($users)
@@ -274,22 +288,14 @@ if(-not $users -or (SafeCount $users) -eq 0){
   return
 }
 
-$report=@()
-$i=0; $total = (SafeCount $users)
+$report=@(); $i=0; $total=(SafeCount $users)
 foreach($s in $users){
   $i++; Write-Progress -Activity "Collecting" -Status "$i/$total $s" -PercentComplete (($i/$total)*100)
   try{
-    if($useAD){
-      $info = AggregateInfo -sam $s -adsi $null -useAD $true
-    } else {
-      $adObj = $adsiMap[$s]
-      if(-not $adObj){ Write-Warning "ADSI not found for $s" }
-      $info = AggregateInfo -sam $s -adsi $adObj -useAD $false
-    }
+    if($useAD){ $info = AggregateInfo -sam $s -adsi $null -useAD $true }
+    else      { $info = AggregateInfo -sam $s -adsi $adsiMap[$s] -useAD $false }
     $report += $info
-  } catch {
-    Write-Warning "Ошибка при агрегации $s: $($_.Exception.Message)"
-  }
+  } catch { Write-Warning "Ошибка при агрегации $s: $($_.Exception.Message)" }
 }
 $report = @($report)
 
@@ -328,8 +334,6 @@ if($ExportCsv){
     Write-Warning "Export failed: $($_.Exception.Message)"
     $report | Format-Table -AutoSize
   }
-} else {
-  Write-Host "`nCSV/JSON не запрошен. Используй -ExportCsv для сохранения." -ForegroundColor DarkGray
-}
+} else { Write-Host "`nCSV/JSON не запрошен. Используй -ExportCsv для сохранения." -ForegroundColor DarkGray }
 
 Write-Host "`nDone. Processed: $(SafeCount $report) accounts." -ForegroundColor Cyan
