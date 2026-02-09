@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Загрузка отчёта</h2>
+  <form method="post" enctype="multipart/form-data" class="form-row">
+    <input type="text" name="name" placeholder="Название запуска" />
+    <input type="file" name="report_file" required />
+    <input type="file" name="rules_file" />
+    <label><input type="checkbox" name="include_ok" /> Include OK</label>
+    <label><input type="checkbox" name="include_missing" /> Include Missing</label>
+    <label><input type="checkbox" name="missing_details" /> Missing Details</label>
+    <button type="submit">Запустить</button>
+  </form>
+  <p class="muted">Если rules не загружать, используется {{ default_rules }}.</p>
+</div>
+{% endblock %}

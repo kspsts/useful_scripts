@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Сравнение</h2>
+  <p>Run A: {{ run_a.id }} — {{ run_a.name }}</p>
+  <p>Run B: {{ run_b.id }} — {{ run_b.name }}</p>
+</div>
+
+<div class="card">
+  <h3>Изменения по правилам (scope)</h3>
+  {% if not changes %}
+    <p class="muted">Нет изменений статусов.</p>
+  {% else %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Rule</th>
+        <th>Severity</th>
+        <th>Category</th>
+        <th>From</th>
+        <th>To</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in changes %}
+      <tr>
+        <td>{{ c.rule_id }}</td>
+        <td>{{ c.severity }}</td>
+        <td>{{ c.category }}</td>
+        <td>{{ c.from }}</td>
+        <td>{{ c.to }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

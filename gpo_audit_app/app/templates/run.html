@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>{{ run.name }}</h2>
+  <div class="grid">
+    <div><strong>Run ID:</strong> {{ run.id }}</div>
+    <div><strong>Дата:</strong> {{ run.created_at }}</div>
+    <div><strong>GPO:</strong> {{ run.total_gpos }}</div>
+    <div><strong>Rules:</strong> {{ run.ruleset_filename }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Фильтры</h3>
+  <form method="get" class="form-row">
+    <input type="text" name="status" placeholder="Status" value="{{ filters.status }}" />
+    <input type="text" name="severity" placeholder="Severity" value="{{ filters.severity }}" />
+    <input type="text" name="category" placeholder="Category" value="{{ filters.category }}" />
+    <input type="text" name="rule_id" placeholder="Rule ID" value="{{ filters.rule_id }}" />
+    <input type="text" name="gpo" placeholder="GPO" value="{{ filters.gpo }}" />
+    <button type="submit">Фильтровать</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Сводка по правилам (scope)</h3>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Rule</th>
+        <th>Severity</th>
+        <th>Scope</th>
+        <th>In</th>
+        <th>OK</th>
+        <th>Issues</th>
+        <th>Missing</th>
+        <th>Never</th>
+        <th>Conflict</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in scope %}
+      <tr>
+        <td><span class="badge {% if row.status == 'OK' %}ok{% elif row.status == 'Не ОК' %}bad{% else %}warn{% endif %}">{{ row.status }}</span></td>
+        <td>{{ row.rule_id }}</td>
+        <td>{{ row.severity }}</td>
+        <td>{{ row.scope }}</td>
+        <td>{{ row.scope_in }}</td>
+        <td>{{ row.scope_ok }}</td>
+        <td>{{ row.scope_issues }}</td>
+        <td>{{ row.scope_missing_display }}</td>
+        <td>{{ row.never_found }}</td>
+        <td>{{ row.conflict }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Результаты</h3>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Severity</th>
+        <th>Rule</th>
+        <th>GPO</th>
+        <th>Found</th>
+        <th>Expected</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in results %}
+      <tr>
+        <td><span class="badge {% if row.status == 'OK' %}ok{% elif row.status == 'Не ОК' %}bad{% else %}warn{% endif %}">{{ row.status }}</span></td>
+        <td>{{ row.severity }}</td>
+        <td>{{ row.rule_id }}</td>
+        <td>{{ row.gpo }}</td>
+        <td>{{ row.found }}</td>
+        <td>{{ row.expected_display }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

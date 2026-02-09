@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Отчёты</h2>
+  {% if not runs %}
+    <p class="muted">Отчётов пока нет.</p>
+  {% else %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Название</th>
+        <th>Дата</th>
+        <th>GPO</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for run in runs %}
+      <tr>
+        <td>{{ run.id }}</td>
+        <td>{{ run.name }}</td>
+        <td>{{ run.created_at }}</td>
+        <td>{{ run.total_gpos }}</td>
+        <td>
+          <a href="/runs/{{ run.id }}">Открыть</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Сравнение</h2>
+  <form method="get" action="/compare" class="form-row">
+    <input type="number" name="run_a" placeholder="Run A ID" required />
+    <input type="number" name="run_b" placeholder="Run B ID" required />
+    <button type="submit">Сравнить</button>
+  </form>
+</div>
+{% endblock %}
