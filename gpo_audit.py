@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Аудит GPMC HTML-отчётов по правилам из gpo_audit.ps1 (Python-версия)."""
+"""Аудит GPMC HTML/XML-отчётов по правилам из gpo_audit.ps1 (Python-версия)."""
 import argparse
 import csv
 import html
@@ -8,8 +8,10 @@ import re
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
+from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from xml.etree import ElementTree as ET
 
 COLOR_RESET = "\033[0m"
 COLOR_HEADER = "\033[36m"
@@ -81,6 +83,138 @@ def _html_escape(value: object, limit: Optional[int] = 800) -> str:
     return escaped.replace("\n", "<br>")
 
 
+def _collapse_ws(value: str) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def detect_report_format(raw_bytes: bytes, path: Path) -> str:
+    sniff = raw_bytes[:4096]
+    sniff_no_null = sniff.replace(b"\x00", b"").lower()
+    if b"<?xml" in sniff_no_null or b"<gpo" in sniff_no_null or b"<gpos" in sniff_no_null:
+        return "xml"
+    if b"<html" in sniff_no_null or b"<!doctype html" in sniff_no_null:
+        return "html"
+    suffix = path.suffix.lower()
+    if suffix in (".xml", ".gpreport"):
+        return "xml"
+    return "html"
+
+
+def read_text_auto(path: Path, forced_encoding: Optional[str] = None) -> Tuple[str, str]:
+    data = path.read_bytes()
+    if forced_encoding:
+        return data.decode(forced_encoding), forced_encoding
+
+    encoding = ""
+    if data.startswith(b"\xff\xfe") or data.startswith(b"\xfe\xff"):
+        encoding = "utf-16"
+    elif data.startswith(b"\xef\xbb\xbf"):
+        encoding = "utf-8-sig"
+
+    if encoding:
+        return data.decode(encoding), encoding
+
+    for candidate in ("utf-16", "utf-8", "cp1251"):
+        try:
+            return data.decode(candidate), candidate
+        except UnicodeDecodeError:
+            continue
+
+    return data.decode("utf-8", errors="replace"), "utf-8?"
+
+
+class _HTMLTextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._parts: List[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
+        tag = tag.lower()
+        if tag in ("script", "style"):
+            self._skip += 1
+            return
+        if tag in ("br", "p", "div", "tr", "td", "li"):
+            self._parts.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag in ("script", "style") and self._skip:
+            self._skip -= 1
+            return
+        if tag in ("p", "div", "tr", "li"):
+            self._parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        if self._skip:
+            return
+        if data:
+            self._parts.append(data)
+
+    def get_text(self) -> str:
+        return _collapse_ws(html.unescape("".join(self._parts)))
+
+
+class _HTMLTableExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._skip = 0
+        self._in_td = False
+        self._current: List[str] = []
+        self._row: List[str] = []
+        self.pairs: List[Tuple[str, str]] = []
+
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
+        tag = tag.lower()
+        if tag in ("script", "style"):
+            self._skip += 1
+            return
+        if self._skip:
+            return
+        if tag == "td":
+            self._in_td = True
+            self._current = []
+        elif tag == "br" and self._in_td:
+            self._current.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag in ("script", "style") and self._skip:
+            self._skip -= 1
+            return
+        if self._skip:
+            return
+        if tag == "td" and self._in_td:
+            cell = _collapse_ws(html.unescape("".join(self._current)))
+            self._row.append(cell)
+            self._in_td = False
+        elif tag == "tr":
+            if len(self._row) >= 2:
+                name = self._row[0]
+                value = self._row[1]
+                if name:
+                    self.pairs.append((name, value))
+            self._row = []
+
+    def handle_data(self, data: str) -> None:
+        if self._skip or not self._in_td:
+            return
+        if data:
+            self._current.append(data)
+
+
+def html_to_text(raw_html: str) -> str:
+    parser = _HTMLTextExtractor()
+    parser.feed(raw_html)
+    return parser.get_text()
+
+
+def extract_td_pairs(raw_html: str) -> List[Tuple[str, str]]:
+    parser = _HTMLTableExtractor()
+    parser.feed(raw_html)
+    return parser.pairs
+
+
 @dataclass
 class CompareConfig:
     type: str
@@ -98,6 +232,7 @@ class Rule:
     category: str
     severity: str
     profiles: List[str]
+    policy_names: List[str]
     patterns_raw: List[str]
     desired_raw: List[str]
     desired_text: str
@@ -114,6 +249,7 @@ class Rule:
     expected_regex: List[re.Pattern] = field(init=False)
     expected_display: str = field(init=False)
     compare: Optional[CompareConfig] = field(init=False)
+    policy_names_norm: List[str] = field(init=False)
 
     def __post_init__(self) -> None:
         flags = re.IGNORECASE | re.DOTALL
@@ -121,6 +257,7 @@ class Rule:
         self.desired_norm = [normalize_text(str(val), self.normalize_code) for val in self.desired_raw if str(val).strip()]
         self.expected_regex = [re.compile(pat, re.IGNORECASE) for pat in self.expected_regex_raw]
         self.expected_display = self.desired_text or " / ".join(str(v) for v in self.desired_raw if str(v).strip())
+        self.policy_names_norm = [normalize_key(name) for name in self.policy_names if name]
         if isinstance(self.compare_data, dict):
             comp_type = self.compare_data.get("type")
             tokens = self.compare_data.get("tokens", [])
@@ -146,7 +283,7 @@ class Rule:
 
 def build_table_pattern(policy_name: str) -> str:
     escaped = re.escape(policy_name)
-    return rf"<td>\s*{escaped}\s*</td>\s*<td>\s*([^<]*)\s*</td>"
+    return rf"<td[^>]*>\s*{escaped}\s*</td>\s*<td[^>]*>\s*([^<]*)\s*</td>"
 
 
 def _normalize_profiles(raw_profiles: Optional[Sequence[str]]) -> List[str]:
@@ -161,6 +298,7 @@ def _hydrate_rule(entry: Dict[str, Any], origin: str = "rules") -> Rule:
 
     patterns: List[str]
     desired_values: List[str]
+    policy_names: List[str] = []
 
     if entry.get("patterns"):
         patterns = [str(value) for value in entry.get("patterns", []) if str(value).strip()]
@@ -174,6 +312,7 @@ def _hydrate_rule(entry: Dict[str, Any], origin: str = "rules") -> Rule:
         for name in alt_names:
             if str(name).strip():
                 names.append(str(name))
+        policy_names = list(names)
         patterns = [build_table_pattern(name) for name in names]
         desired_values = entry.get("expected") or []
 
@@ -189,6 +328,7 @@ def _hydrate_rule(entry: Dict[str, Any], origin: str = "rules") -> Rule:
         category=str(entry.get("category", "Custom")),
         severity=str(entry.get("severity", "")),
         profiles=_normalize_profiles(entry.get("profiles")),
+        policy_names=policy_names,
         patterns_raw=patterns,
         desired_raw=[str(v) for v in desired_values if str(v).strip()],
         desired_text=str(entry.get("desired_text", "")),
@@ -340,12 +480,116 @@ def print_compliance_summary(summary: Dict[str, object], use_color: bool) -> Non
         print(_color_text(line, COLOR_DETAIL, use_color))
 
 
-def parse_report(report_path: Path) -> List[Dict[str, str]]:
-    raw_text = report_path.read_text(encoding="utf-16")
+def _strip_ns(tag: str) -> str:
+    if "}" in tag:
+        return tag.split("}", 1)[1]
+    return tag
+
+
+def _extract_policy_pairs_from_xml(node: ET.Element) -> List[Tuple[str, str]]:
+    name_tags = {
+        "name",
+        "policy",
+        "setting",
+        "settingname",
+        "valuename",
+        "keyname",
+        "key",
+    }
+    value_tags = {
+        "state",
+        "value",
+        "settingnumber",
+        "settingstring",
+        "settingboolean",
+        "settingvalue",
+        "data",
+        "type",
+        "valuevalue",
+    }
+    pairs: List[Tuple[str, str]] = []
+
+    for parent in node.iter():
+        children = list(parent)
+        for idx, child in enumerate(children):
+            tag = _strip_ns(child.tag).lower()
+            if tag not in name_tags:
+                continue
+            name = _collapse_ws(child.text or "")
+            if not name:
+                continue
+            value = ""
+            for j in range(idx + 1, min(idx + 4, len(children))):
+                sibling = children[j]
+                s_tag = _strip_ns(sibling.tag).lower()
+                if s_tag in value_tags and (sibling.text or "").strip():
+                    value = _collapse_ws(sibling.text or "")
+                    break
+            pairs.append((name, value))
+
+    for elem in node.iter():
+        attrib = {k.lower(): v for k, v in elem.attrib.items()}
+        name = attrib.get("name") or attrib.get("policy")
+        if name:
+            val = attrib.get("value") or attrib.get("state") or attrib.get("data") or ""
+            pairs.append((_collapse_ws(name), _collapse_ws(val)))
+
+    return pairs
+
+
+def _find_gpo_name(node: ET.Element) -> str:
+    preferred_tags = {"name", "displayname", "gponame"}
+    for child in list(node):
+        tag = _strip_ns(child.tag).lower()
+        if tag in preferred_tags and (child.text or "").strip():
+            return _collapse_ws(child.text or "")
+    for attr_key in ("name", "displayname"):
+        if attr_key in node.attrib and node.attrib[attr_key].strip():
+            return _collapse_ws(node.attrib[attr_key])
+    return "GPO"
+
+
+def parse_xml_report(raw_bytes: bytes) -> List[Dict[str, object]]:
+    root = ET.fromstring(raw_bytes)
+    root_tag = _strip_ns(root.tag).lower()
+    if root_tag == "gpo":
+        gpo_nodes = [root]
+    else:
+        gpo_nodes = list(root.findall(".//GPO")) or list(root.findall(".//gpo"))
+        if not gpo_nodes:
+            gpo_nodes = [root]
+
+    gpos: List[Dict[str, object]] = []
+    for gpo in gpo_nodes:
+        name = _find_gpo_name(gpo)
+        content_text = _collapse_ws(" ".join(text for text in gpo.itertext() if text and text.strip()))
+        pairs = _extract_policy_pairs_from_xml(gpo)
+        policy_text = _collapse_ws(" ".join(f"{name}: {value}" for name, value in pairs if name))
+        policy_map: Dict[str, List[str]] = {}
+        for policy_name, value in pairs:
+            key = normalize_key(policy_name)
+            if not key:
+                continue
+            policy_map.setdefault(key, []).append(value)
+        gpos.append(
+            {
+                "name": name,
+                "name_norm": normalize_key(name),
+                "content": content_text,
+                "content_text": content_text,
+                "policy_text": policy_text,
+                "policy_map": policy_map,
+                "format": "xml",
+            }
+        )
+    return gpos
+
+
+def parse_html_report(raw_text: str) -> List[Dict[str, object]]:
     name_pattern = re.compile(r"<td[^>]*class=\"gponame\">(.*?)</td>", re.IGNORECASE | re.DOTALL)
 
     matches = list(name_pattern.finditer(raw_text))
-    gpos: List[Dict[str, str]] = []
+    gpos: List[Dict[str, object]] = []
 
     for idx, match in enumerate(matches):
         name_raw = match.group(1)
@@ -358,16 +602,58 @@ def parse_report(report_path: Path) -> List[Dict[str, str]]:
             table_start = match.start()
         section_end = matches[idx + 1].start() if idx + 1 < len(matches) else len(raw_text)
         content = raw_text[table_start:section_end]
+        pairs = extract_td_pairs(content)
+        policy_text = _collapse_ws(" ".join(f"{name}: {value}" for name, value in pairs if name))
+        policy_map: Dict[str, List[str]] = {}
+        for policy_name, value in pairs:
+            key = normalize_key(policy_name)
+            if not key:
+                continue
+            policy_map.setdefault(key, []).append(value)
 
         gpos.append(
             {
                 "name": name,
                 "name_norm": normalize_key(name),
                 "content": content,
+                "content_text": html_to_text(content),
+                "policy_text": policy_text,
+                "policy_map": policy_map,
+                "format": "html",
             }
         )
 
     return gpos
+
+
+def parse_report(report_path: Path, forced_encoding: Optional[str] = None) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
+    raw_bytes = report_path.read_bytes()
+    report_format = detect_report_format(raw_bytes, report_path)
+    encoding = "n/a"
+    if report_format == "xml":
+        gpos = parse_xml_report(raw_bytes)
+    else:
+        text, encoding = read_text_auto(report_path, forced_encoding=forced_encoding)
+        gpos = parse_html_report(text)
+        if not gpos:
+            policy_text = ""
+            gpos = [
+                {
+                    "name": report_path.stem,
+                    "name_norm": normalize_key(report_path.stem),
+                    "content": text,
+                    "content_text": html_to_text(text),
+                    "policy_text": policy_text,
+                    "policy_map": {},
+                    "format": "html",
+                }
+            ]
+    meta = {
+        "path": str(report_path),
+        "format": report_format,
+        "encoding": encoding,
+    }
+    return gpos, meta
 
 
 def run_compare(compare: CompareConfig, raw_value: str, normalized: str) -> bool:
@@ -403,12 +689,18 @@ def run_compare(compare: CompareConfig, raw_value: str, normalized: str) -> bool
         failure = any(tok in raw_collapsed for tok in ("failure", "отказ"))
         return success and failure
     if compare.type == "int_min":
+        if compare.value is None:
+            return False
         value = get_first_int(raw_value)
         return value is not None and value >= int(compare.value)
     if compare.type == "int_max":
+        if compare.value is None:
+            return False
         value = get_first_int(raw_value)
         return value is not None and value <= int(compare.value)
     if compare.type == "int_equals":
+        if compare.value is None:
+            return False
         value = get_first_int(raw_value)
         return value is not None and value == int(compare.value)
     if compare.type == "int_range":
@@ -444,18 +736,44 @@ def run_compare(compare: CompareConfig, raw_value: str, normalized: str) -> bool
     return False
 
 
-def apply_rule(rule: Rule, content: str) -> Dict[str, object]:
-    found_value: Optional[str] = None
-    for pattern in rule.patterns:
-        match = pattern.search(content)
+def _search_patterns(patterns: Sequence[re.Pattern], text: str) -> Optional[str]:
+    for pattern in patterns:
+        match = pattern.search(text)
         if match:
             group_value = match.group(1)
             if isinstance(group_value, str):
-                found_value = html.unescape(group_value).strip()
-            else:
-                found_value = str(group_value)
-            break
-    if not found_value:
+                return html.unescape(group_value).strip()
+            return str(group_value)
+    return None
+
+
+def _lookup_policy_value(rule: Rule, policy_map: Dict[str, List[str]]) -> Optional[str]:
+    if not policy_map or not rule.policy_names_norm:
+        return None
+    for key in rule.policy_names_norm:
+        if key in policy_map:
+            values = [val for val in policy_map.get(key, []) if val is not None]
+            if not values:
+                return ""
+            return " | ".join(values)
+    return None
+
+
+def apply_rule(rule: Rule, gpo: Dict[str, object]) -> Dict[str, object]:
+    content = str(gpo.get("content", "") or "")
+    content_text = str(gpo.get("content_text", "") or "")
+    policy_text = str(gpo.get("policy_text", "") or "")
+    policy_map = gpo.get("policy_map", {}) or {}
+
+    found_value = _search_patterns(rule.patterns, content)
+    if found_value is None and content_text:
+        found_value = _search_patterns(rule.patterns, content_text)
+    if found_value is None and policy_text:
+        found_value = _search_patterns(rule.patterns, policy_text)
+    if found_value is None:
+        found_value = _lookup_policy_value(rule, policy_map)
+
+    if found_value is None:
         return {
             "status": "Не найдено",
             "found": "",
@@ -495,7 +813,7 @@ def apply_rule(rule: Rule, content: str) -> Dict[str, object]:
 
 
 def evaluate_rules(
-    gpos: List[Dict[str, str]],
+    gpos: List[Dict[str, object]],
     rules: List[Rule],
     profiles_filter: Optional[Sequence[str]] = None,
     include_ok: bool = False,
@@ -533,7 +851,6 @@ def evaluate_rules(
         return True
 
     for gpo in gpos:
-        content = gpo["content"]
         gpo_name = gpo["name"]
         source_label = gpo.get("source")
         if show_sources and source_label:
@@ -543,10 +860,20 @@ def evaluate_rules(
         for rule in base_rules:
             if not profile_matches(rule):
                 continue
-            result = apply_rule(rule, content)
+            result = apply_rule(rule, gpo)
             status = result["status"]
 
             if status == "OK":
+                tracker = base_missing_tracker.setdefault(
+                    rule.id,
+                    {
+                        "rule": rule,
+                        "gpos": [],
+                        "details": [],
+                        "found": 0,
+                    },
+                )
+                tracker["found"] = tracker.get("found", 0) + 1
                 if include_ok:
                     entry = {
                         "rule_id": rule.id,
@@ -574,6 +901,7 @@ def evaluate_rules(
                         "rule": rule,
                         "gpos": [],
                         "details": [],
+                        "found": 0,
                     },
                 )
                 tracker["gpos"].append(gpo_display)
@@ -597,6 +925,16 @@ def evaluate_rules(
                     tracker.setdefault("details", []).append(detail_entry)
                 continue
 
+            tracker = base_missing_tracker.setdefault(
+                rule.id,
+                {
+                    "rule": rule,
+                    "gpos": [],
+                    "details": [],
+                    "found": 0,
+                },
+            )
+            tracker["found"] = tracker.get("found", 0) + 1
             entry = {
                 "rule_id": rule.id,
                 "title": rule.title,
@@ -622,7 +960,7 @@ def evaluate_rules(
         rule: Rule = tracker["rule"]  # type: ignore[assignment]
         gpo_list: List[str] = tracker["gpos"]  # type: ignore[assignment]
         count = len(gpo_list)
-        if total_gpos == 0 or count < total_gpos:
+        if total_gpos == 0 or count == 0:
             continue
         sample = gpo_list[:3]
         sample_display = ", ".join(sample)
@@ -634,10 +972,16 @@ def evaluate_rules(
             gpo_display = "Все GPO"
         else:
             gpo_display = sample_display or "Несколько GPO"
-        summary_note = (
-            f"Параметр не обнаружен ни в одном из {count} GPO"
-            + (f" (например: {', '.join(sample[:3])})" if sample else "")
-        )
+        if count == total_gpos:
+            summary_note = (
+                f"Параметр не обнаружен ни в одном из {count} GPO"
+                + (f" (например: {', '.join(sample[:3])})" if sample else "")
+            )
+        else:
+            summary_note = (
+                f"Параметр не обнаружен в {count} из {total_gpos} GPO"
+                + (f" (например: {', '.join(sample[:3])})" if sample else "")
+            )
         aggregated_entry = {
             "rule_id": rule.id,
             "title": rule.title,
@@ -672,14 +1016,13 @@ def evaluate_rules(
         found_any = False
         note_missing = "Параметр не обнаружен ни в одном GPO"
         for gpo in gpos:
-            content = gpo["content"]
             gpo_name = gpo["name"]
             source_label = gpo.get("source")
             if show_sources and source_label:
                 gpo_display = f"{gpo_name} ({source_label})"
             else:
                 gpo_display = gpo_name
-            result = apply_rule(rule, content)
+            result = apply_rule(rule, gpo)
             if result["status"] == "Не найдено":
                 continue
             found_any = True
@@ -883,7 +1226,7 @@ def print_console_report(
         summary_entries_to_show = summary_entries
     if summary_entries and not include_missing:
         print()
-        print(_color_text("Правила без совпадений (агрегировано)", COLOR_HEADER, use_color))
+        print(_color_text("Правила без совпадений / частично отсутствующие (агрегировано)", COLOR_HEADER, use_color))
         for entry in summary_entries_to_show:
             line_parts = [f"- {entry.get('rule_id')}"]
             title = entry.get("title")
@@ -949,7 +1292,7 @@ def export_html(
     include_missing: bool,
     missing_details: bool,
     total_gpos: int,
-    report_paths: Sequence[Path],
+    report_meta: Sequence[Dict[str, object]],
     compliance_summary: Optional[Dict[str, object]] = None,
     compliance_min_severity: Optional[str] = None,
 ) -> None:
@@ -1021,7 +1364,19 @@ def export_html(
     hidden_details = int(missing_stats.get("hidden_details", 0) or 0)
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    report_list = [str(path) for path in report_paths]
+    report_list = []
+    for meta in report_meta:
+        label = str(meta.get("path", ""))
+        fmt = meta.get("format")
+        enc = meta.get("encoding")
+        details = []
+        if fmt:
+            details.append(str(fmt))
+        if enc and enc != "n/a":
+            details.append(str(enc))
+        if details:
+            label = f"{label} ({', '.join(details)})"
+        report_list.append(label)
 
     issues_count = len(issues)
     missing_count = len(missing)
@@ -1205,17 +1560,21 @@ code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
 
 def build_cli() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Сравнение настроек GPO (AllGPOs.htm) с правилами лучших практик.",
+        description="Сравнение настроек GPO (HTML/XML отчёты GPMC) с правилами лучших практик.",
     )
     parser.add_argument(
         "--report",
         required=True,
         nargs="+",
-        help="Путь(и) к AllGPOs.htm, экспортированным из GPMC (можно несколько).",
+        help="Путь(и) к отчётам GPMC (HTML/XML, можно несколько).",
     )
     parser.add_argument("--rules", help="JSON-файл с правилами. По умолчанию gpo_rules.json рядом со скриптом.")
     parser.add_argument("--csv", help="Путь для сохранения CSV-отчёта.")
     parser.add_argument("--html", help="Путь для сохранения HTML-отчёта.")
+    parser.add_argument(
+        "--encoding",
+        help="Принудительная кодировка HTML-отчётов (например: utf-16, utf-8, cp1251). Для XML игнорируется.",
+    )
     parser.add_argument("--include-ok", action="store_true", help="Включать соответствующие правила в вывод.")
     parser.add_argument(
         "--include-missing",
@@ -1321,12 +1680,14 @@ def main() -> int:
         if compliance_rules:
             rules = merge_rules(rules, compliance_rules)
 
-    gpos: List[Dict[str, str]] = []
+    gpos: List[Dict[str, object]] = []
+    report_meta: List[Dict[str, object]] = []
     for report_path in report_paths:
         try:
-            parsed = parse_report(report_path)
+            parsed, meta = parse_report(report_path, forced_encoding=args.encoding)
         except Exception as exc:  # pragma: no cover
             parser.error(f"Не удалось разобрать отчёт {report_path}: {exc}")
+        report_meta.append(meta)
         for item in parsed:
             entry = dict(item)
             entry.setdefault("source", report_path.name)
@@ -1366,7 +1727,10 @@ def main() -> int:
         print_compliance_summary(compliance_summary, sys.stdout.isatty())
 
     issue_count = len(evaluation["issues"])
-    missing_rule_total = len(evaluation.get("missing", [])) + len(evaluation.get("missing_summary", []))
+    if args.include_missing and args.missing_details:
+        missing_rule_total = len(evaluation.get("missing", []))
+    else:
+        missing_rule_total = len(evaluation.get("missing_summary", [])) or len(evaluation.get("missing", []))
     missing_display = str(missing_rule_total)
     hidden_details = int(evaluation.get("missing_stats", {}).get("hidden_details", 0) or 0)
     if hidden_details:
@@ -1395,7 +1759,7 @@ def main() -> int:
             include_missing=args.include_missing,
             missing_details=args.missing_details,
             total_gpos=total_gpos,
-            report_paths=report_paths,
+            report_meta=report_meta,
             compliance_summary=compliance_summary,
             compliance_min_severity=args.compliance_min_severity,
         )
