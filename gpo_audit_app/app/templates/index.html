@@ -1,43 +1,209 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h2>Отчёты</h2>
+  <h2>Панель контроля</h2>
+  <p class="muted">График проблем и список исправлений в одном экране.</p>
   {% if not runs %}
-    <p class="muted">Отчётов пока нет.</p>
+  <p class="muted">Запусков пока нет. Загрузите первый отчёт на вкладке «Загрузка».</p>
   {% else %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Название</th>
-        <th>Дата</th>
-        <th>GPO</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for run in runs %}
-      <tr>
-        <td>{{ run.id }}</td>
-        <td>{{ run.name }}</td>
-        <td>{{ run.created_at }}</td>
-        <td>{{ run.total_gpos }}</td>
-        <td>
-          <a href="/runs/{{ run.id }}">Открыть</a>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <form method="get" action="/" class="form-row">
+    <label class="field" style="min-width: 340px;">
+      <span>Выберите запуск для панели</span>
+      <select name="focus_run_id" onchange="this.form.submit()">
+        {% for run in runs %}
+        <option value="{{ run.id }}" {% if focus_run and run.id == focus_run.id %}selected{% endif %}>
+          {{ run.id }} — {{ run.name }} ({{ run.created_at }})
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if focus_run %}
+    <div class="stat">
+      <strong>Текущий запуск:</strong> #{{ focus_run.id }} · {{ focus_run.total_gpos }} GPO
+      · <a href="/runs/{{ focus_run.id }}">Открыть полный отчёт</a>
+    </div>
+    {% endif %}
+  </form>
   {% endif %}
 </div>
 
+{% if dashboard %}
 <div class="card">
-  <h2>Сравнение</h2>
-  <form method="get" action="/compare" class="form-row">
-    <input type="number" name="run_a" placeholder="Run A ID" required />
-    <input type="number" name="run_b" placeholder="Run B ID" required />
-    <button type="submit">Сравнить</button>
-  </form>
+  <h3>Сводка по риску</h3>
+  <div class="dashboard-grid">
+    <section class="mini-panel">
+      <h4>Проблемы по критичности</h4>
+      {% if dashboard.severity_chart %}
+      <div class="bar-list">
+        {% for row in dashboard.severity_chart %}
+        <div class="bar-row">
+          <div class="bar-label">{{ row.label }}</div>
+          <div class="bar-track">
+            <div class="bar-fill sev-{{ row.label|lower }}" style="width: {{ row.pct }}%;"></div>
+          </div>
+          <div class="bar-meta">{{ row.count }} ({{ row.pct }}%)</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="muted">Проблем не найдено.</p>
+      {% endif %}
+    </section>
+
+    <section class="mini-panel">
+      <h4>Состав статусов</h4>
+      <div class="stack-track">
+        {% for row in dashboard.status_chart %}
+        <div class="stack-segment tone-{{ row.tone }}" style="width: {{ row.pct }}%;" title="{{ row.label }}: {{ row.count }}"></div>
+        {% endfor %}
+      </div>
+      <div class="legend-list">
+        {% for row in dashboard.status_chart %}
+        <div class="legend-item">
+          <span class="legend-dot tone-{{ row.tone }}"></span>
+          <span>{{ row.label }}: {{ row.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
 </div>
+
+<div class="card">
+  <h3>Что исправить в первую очередь</h3>
+  <p class="muted">Отсортировано по критичности и типу проблемы.</p>
+  <div class="table-wrap">
+    <table class="table table-actions">
+      <thead>
+        <tr>
+          <th>Приоритет</th>
+          <th>Статус</th>
+          <th>Критичность</th>
+          <th>Правило</th>
+          <th>Где</th>
+          <th>Найдено</th>
+          <th>Ожидалось</th>
+          <th>Как исправить</th>
+        </tr>
+        <tr class="table-filters">
+          <th>
+            <select id="f-priority">
+              <option value="">Все</option>
+              <option value="срочно">Срочно</option>
+              <option value="высокий">Высокий</option>
+              <option value="плановый">Плановый</option>
+            </select>
+          </th>
+          <th>
+            <select id="f-status">
+              <option value="">Все</option>
+              <option value="неверно">Неверно</option>
+              <option value="не задано">Не задано</option>
+            </select>
+          </th>
+          <th><input id="f-severity" type="text" placeholder="Фильтр" /></th>
+          <th><input id="f-rule" type="text" placeholder="ID/название" /></th>
+          <th><input id="f-gpo" type="text" placeholder="GPO" /></th>
+          <th><input id="f-found" type="text" placeholder="Найдено" /></th>
+          <th><input id="f-expected" type="text" placeholder="Ожидалось" /></th>
+          <th>
+            <input id="f-action" type="text" placeholder="Как исправить" />
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in dashboard.action_items %}
+        <tr
+          class="row-{% if row.status == 'Неверно' %}issue{% else %}missing{% endif %}"
+          data-priority="{{ row.priority|lower }}"
+          data-status="{{ row.status|lower }}"
+          data-severity="{{ row.severity|lower }}"
+          data-rule="{{ (row.rule_id ~ ' ' ~ row.title)|lower }}"
+          data-gpo="{{ row.gpo|lower }}"
+          data-found="{{ row.found|lower }}"
+          data-expected="{{ row.expected|lower }}"
+          data-action="{{ row.action|lower }}"
+        >
+          <td>{{ row.priority }}</td>
+          <td>
+            <span class="badge {% if row.status == 'Неверно' %}bad{% else %}warn{% endif %}">{{ row.status }}</span>
+          </td>
+          <td>{{ row.severity }}</td>
+          <td>
+            <strong>{{ row.rule_id }}</strong>
+            <div class="muted">{{ row.title }}</div>
+          </td>
+          <td>{{ row.gpo }}</td>
+          <td>{{ row.found }}</td>
+          <td>{{ row.expected }}</td>
+          <td>{{ row.action }}</td>
+        </tr>
+        {% endfor %}
+        {% if not dashboard.action_items %}
+        <tr><td colspan="8" class="muted">Проблемы не найдены.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% if dashboard.more_actions > 0 and focus_run %}
+  <p class="muted">Ещё {{ dashboard.more_actions }} правил в полном отчёте:
+    <a href="/runs/{{ focus_run.id }}?only_issues=1">открыть список проблем</a>.
+  </p>
+  {% endif %}
+</div>
+
+<script>
+  (() => {
+    const table = document.querySelector(".table-actions");
+    if (!table) return;
+    const bodyRows = Array.from(table.querySelectorAll("tbody tr[data-rule]"));
+    if (!bodyRows.length) return;
+
+    const filters = {
+      priority: document.getElementById("f-priority"),
+      status: document.getElementById("f-status"),
+      severity: document.getElementById("f-severity"),
+      rule: document.getElementById("f-rule"),
+      gpo: document.getElementById("f-gpo"),
+      found: document.getElementById("f-found"),
+      expected: document.getElementById("f-expected"),
+      action: document.getElementById("f-action"),
+    };
+
+    const norm = (v) => (v || "").toString().trim().toLocaleLowerCase("ru-RU");
+
+    const applyFilters = () => {
+      const q = {
+        priority: norm(filters.priority?.value),
+        status: norm(filters.status?.value),
+        severity: norm(filters.severity?.value),
+        rule: norm(filters.rule?.value),
+        gpo: norm(filters.gpo?.value),
+        found: norm(filters.found?.value),
+        expected: norm(filters.expected?.value),
+        action: norm(filters.action?.value),
+      };
+
+      for (const row of bodyRows) {
+        const ok =
+          (!q.priority || (row.dataset.priority || "").includes(q.priority)) &&
+          (!q.status || (row.dataset.status || "").includes(q.status)) &&
+          (!q.severity || (row.dataset.severity || "").includes(q.severity)) &&
+          (!q.rule || (row.dataset.rule || "").includes(q.rule)) &&
+          (!q.gpo || (row.dataset.gpo || "").includes(q.gpo)) &&
+          (!q.found || (row.dataset.found || "").includes(q.found)) &&
+          (!q.expected || (row.dataset.expected || "").includes(q.expected)) &&
+          (!q.action || (row.dataset.action || "").includes(q.action));
+        row.style.display = ok ? "" : "none";
+      }
+    };
+
+    Object.values(filters).forEach((el) => {
+      if (!el) return;
+      el.addEventListener("input", applyFilters);
+      el.addEventListener("change", applyFilters);
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}

@@ -1,16 +1,87 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="card upload-hero">
+  <h2>Загрузка отчёта GPO</h2>
+  <p class="muted">Один экран: загрузили экспорт GPMC, выбрали уровень детализации, получили отчёт.</p>
+  <div class="hero-tags">
+    <span class="hero-tag">1. Файл отчёта</span>
+    <span class="hero-tag">2. Правила (опц.)</span>
+    <span class="hero-tag">3. Запуск аудита</span>
+  </div>
+</div>
+
 <div class="card">
-  <h2>Загрузка отчёта</h2>
-  <form method="post" enctype="multipart/form-data" class="form-row">
-    <input type="text" name="name" placeholder="Название запуска" />
-    <input type="file" name="report_file" required />
-    <input type="file" name="rules_file" />
-    <label><input type="checkbox" name="include_ok" /> Include OK</label>
-    <label><input type="checkbox" name="include_missing" /> Include Missing</label>
-    <label><input type="checkbox" name="missing_details" /> Missing Details</label>
-    <button type="submit">Запустить</button>
+  <form method="post" enctype="multipart/form-data" class="upload-layout">
+    <section class="upload-section">
+      <h3>Основное</h3>
+      <label class="field">
+        <span class="label-with-help">
+          Название запуска
+          <span class="help-tip" tabindex="0">?
+            <span class="help-tip__bubble">Произвольное имя для удобного поиска. Если оставить пустым, имя создастся автоматически.</span>
+          </span>
+        </span>
+        <input type="text" name="name" placeholder="Напр. Аудит домена 2026-02-12" />
+      </label>
+
+      <label class="field">
+        <span class="label-with-help">
+          Отчёт GPMC (обязательно)
+          <span class="help-tip" tabindex="0">?
+            <span class="help-tip__bubble">Загрузите HTML или XML, экспортированный из Group Policy Management Console.</span>
+          </span>
+        </span>
+        <input type="file" name="report_file" accept=".html,.htm,.xml" required />
+        <small class="muted">Пример: <code>AllGPOs.html</code></small>
+      </label>
+
+      <label class="field">
+        <span class="label-with-help">
+          Файл правил (JSON, опционально)
+          <span class="help-tip" tabindex="0">?
+            <span class="help-tip__bubble">Можно не загружать. Тогда используется встроенный baseline, который лежит рядом с приложением.</span>
+          </span>
+        </span>
+        <input type="file" name="rules_file" accept=".json" />
+        <small class="muted">По умолчанию: <code>{{ default_rules }}</code></small>
+      </label>
+    </section>
+
+    <section class="upload-section">
+      <h3>Как формировать отчёт</h3>
+      <label class="check check-card">
+        <input type="checkbox" name="include_ok" />
+        <span>
+          <strong>Показывать «Соответствует»</strong>
+          <small class="muted">Включайте для полного compliance-отчёта. Для быстрого triage обычно не нужно.</small>
+        </span>
+      </label>
+
+      <label class="check check-card">
+        <input type="checkbox" name="include_missing" checked />
+        <span>
+          <strong>Показывать «Не задано»</strong>
+          <small class="muted">Рекомендуется. Это важно для аудита покрытия baseline.</small>
+        </span>
+      </label>
+
+      <label class="check check-card">
+        <input type="checkbox" name="missing_details" />
+        <span>
+          <strong>Детализация «Не задано» по каждому GPO</strong>
+          <small class="muted">Включайте только для глубокого разбора. Существенно увеличивает объём результатов.</small>
+        </span>
+      </label>
+
+      <div class="upload-actions">
+        <button type="submit">Запустить аудит</button>
+      </div>
+    </section>
   </form>
-  <p class="muted">Если rules не загружать, используется {{ default_rules }}.</p>
+</div>
+
+<div class="card">
+  <h3>Подсказка по экспорту из GPMC</h3>
+  <p class="muted">GPMC → нужный уровень (домен/все GPO) → <strong>Save Report</strong> в формате HTML/XML → загрузка в эту форму.</p>
 </div>
 {% endblock %}

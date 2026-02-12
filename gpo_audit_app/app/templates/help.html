@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Как получить отчёт GPMC</h2>
+  <ol>
+    <li>Откройте Group Policy Management Console (GPMC).</li>
+    <li>Выберите домен → Report → Export.</li>
+    <li>Сохраните отчёт в формате HTML или XML.</li>
+  </ol>
+</div>
+<div class="card">
+  <h2>Что загружать</h2>
+  <ul>
+    <li><strong>Отчёт GPMC</strong>: HTML/XML файл (например AllGPOs.html).</li>
+    <li><strong>Правила (JSON)</strong>: опционально, если нужен свой набор.</li>
+  </ul>
+</div>
+{% endblock %}

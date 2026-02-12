@@ -1,0 +1,1160 @@
+[
+  {
+    "id": "LM_COMPATIBILITY",
+    "policy": "Network security: LAN Manager authentication level",
+    "expected": [
+      "Send NTLMv2 response only",
+      "Только ответ NTLMv2; запрещены LM и NTLM",
+      "Send NTLMv2 response only. Refuse LM & NTLM",
+      "Только отправка ответа NTLMv2; отклонять LM и NTLM",
+      "Отправлять только NTLMv2-ответ. Отказывать LM и NTLM"
+    ],
+    "severity": "High",
+    "category": "Аутентификация",
+    "notes": "Уровень аутентификации должен блокировать LM/NTLM.",
+    "recommendation": "Установите значение \"Send NTLMv2 response only. Refuse LM & NTLM\".",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → LAN Manager authentication level.",
+    "alt_policies": [
+      "Сетевая безопасность: уровень проверки подлинности LAN Manager"
+    ]
+  },
+  {
+    "id": "NO_LM_HASH",
+    "policy": "Network security: Do not store LAN Manager hash value on next password change",
+    "expected": [
+      "Включено",
+      "Enabled"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Хранение LM-хэшей делает пароли уязвимыми.",
+    "recommendation": "Включите параметр, чтобы исключить генерацию LM-хэшей.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Do not store LAN Manager hash value on next password change → Enabled.",
+    "alt_policies": [
+      "Сетевая безопасность: не сохранять значение хэша LAN Manager при следующей смене пароля"
+    ]
+  },
+  {
+    "id": "ACCOUNT_LOCKOUT_THRESHOLD",
+    "policy": "Account lockout threshold",
+    "expected": [
+      "5 invalid logon attempts",
+      "10 invalid logon attempts"
+    ],
+    "severity": "Medium",
+    "category": "Password Policy",
+    "notes": "Нулевой порог не блокирует подбор пароля.",
+    "recommendation": "Выберите значение 5–10 попыток в зависимости от политики безопасности.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Account Lockout Policy → Account lockout threshold.",
+    "alt_policies": [
+      "Порог блокировки учетной записи"
+    ],
+    "compare": {
+      "type": "int_range",
+      "min": 5,
+      "max": 10
+    },
+    "desired_text": "5–10 invalid logon attempts",
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "PASSWORD_HISTORY",
+    "policy": "Enforce password history",
+    "expected": [
+      "24",
+      "24 passwords remembered",
+      "24 пароля"
+    ],
+    "severity": "Medium",
+    "category": "Password Policy",
+    "notes": "Малое значение позволяет часто повторять пароли.",
+    "recommendation": "Установите минимум 24 запоминаемых пароля.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Enforce password history.",
+    "alt_policies": [
+      "Запоминать историю паролей"
+    ],
+    "compare": {
+      "type": "int_min",
+      "value": 24
+    },
+    "desired_text": "≥ 24 passwords remembered",
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "PASSWORD_COMPLEXITY",
+    "policy": "Password must meet complexity requirements",
+    "expected": [
+      "Включено",
+      "Enabled"
+    ],
+    "severity": "High",
+    "category": "Password Policy",
+    "notes": "Отключенная сложность позволяет подбирать простые пароли.",
+    "recommendation": "Включите требование сложности пароля для всех доменных политик.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Password must meet complexity requirements.",
+    "expected_regex": [
+      "(?i)enabled",
+      "(?i)включено"
+    ],
+    "alt_policies": [
+      "Пароль должен отвечать требованиям сложности"
+    ],
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "PASSWORD_MIN_LENGTH",
+    "policy": "Minimum password length",
+    "expected": [
+      "16",
+      "14",
+      "14 символов",
+      "14 characters",
+      "15"
+    ],
+    "severity": "High",
+    "category": "Password Policy",
+    "notes": "Пароли короче 14 символов легче взломать перебором.",
+    "recommendation": "Установите минимальную длину пароля не менее 14 символов (рекомендуется 15+).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Minimum password length.",
+    "compare": {
+      "type": "int_min",
+      "value": 14
+    },
+    "alt_policies": [
+      "Минимальная длина пароля"
+    ],
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "FORCE_LOGOFF",
+    "policy": "Network security: Force logoff when logon hours expire",
+    "expected": [
+      "Включено",
+      "Enabled"
+    ],
+    "severity": "Low",
+    "category": "Security Options",
+    "notes": "Без принудительного завершения сеансы продолжаются после разрешённого времени.",
+    "recommendation": "Включите, чтобы пользователи не работали вне разрешённых часов.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Force logoff when logon hours expire.",
+    "alt_policies": [
+      "Сетевая безопасность: завершать сеанс при истечении времени входа"
+    ]
+  },
+  {
+    "id": "NTLM_OUTBOUND_RESTRICT",
+    "policy": "Network security: Restrict NTLM: Outgoing NTLM traffic to remote servers",
+    "expected_regex": [
+      "(?i)^(deny|audit) all( accounts)?$",
+      "(?i)^(блокировать|аудит).*весь трафик$"
+    ],
+    "severity": "High",
+    "category": "Аутентификация",
+    "notes": "Исходящий NTLM следует блокировать или аудитировать для минимизации атаки Relay.",
+    "recommendation": "Установите Deny all accounts (или Audit all accounts при поэтапном внедрении).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Restrict NTLM: Outgoing NTLM traffic to remote servers.",
+    "alt_policies": [
+      "Сетевая безопасность: ограничения NTLM: исходящий трафик NTLM к удаленным серверам"
+    ]
+  },
+  {
+    "id": "LDAP_CLIENT_SIGNING",
+    "policy": "Network security: LDAP client signing requirements",
+    "expected": [
+      "Require signing",
+      "Требовать подпись",
+      "Требуется цифровая подпись"
+    ],
+    "severity": "High",
+    "category": "LDAP",
+    "notes": "Без подписи LDAP-клиент уязвим к атакам посредника.",
+    "recommendation": "Включите параметр \"Require signing\" для всех клиентов.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → LDAP client signing requirements.",
+    "alt_policies": [
+      "Сетевая безопасность: требование цифровой подписи для LDAP-клиента"
+    ]
+  },
+  {
+    "id": "LDAP_SERVER_SIGNING",
+    "policy": "Domain controller: LDAP server signing requirements",
+    "expected": [
+      "Require signing",
+      "Требовать подпись",
+      "Требуется цифровая подпись"
+    ],
+    "severity": "High",
+    "category": "LDAP",
+    "notes": "Контроллер домена должен требовать подпись LDAP для защиты трафика.",
+    "recommendation": "Выберите значение Require signing для всех КД.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Domain controller: LDAP server signing requirements.",
+    "alt_policies": [
+      "Контроллер домена: требования к подписи сервера LDAP",
+      "Контроллер домена: требование цифровой подписи для LDAP-сервера"
+    ],
+    "scope": "dc_only"
+  },
+  {
+    "id": "LDAP_SERVER_CBT",
+    "policy": "Domain controller: LDAP server channel binding",
+    "expected": [
+      "Required",
+      "Требуется"
+    ],
+    "severity": "High",
+    "category": "LDAP",
+    "notes": "Channel Binding Token защищает от Relay-атак на TLS-сессии LDAP.",
+    "recommendation": "Установите Required для LDAP server channel binding.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Domain controller: LDAP server channel binding.",
+    "alt_policies": [
+      "Контроллер домена: привязка каналов сервера LDAP",
+      "Контроллер домена: требования к токенам привязки канала для LDAP-сервера"
+    ],
+    "scope": "dc_only"
+  },
+  {
+    "id": "KERBEROS_ENFORCE_RESTRICTIONS",
+    "policy": "Kerberos: Enforce user logon restrictions",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "Kerberos",
+    "notes": "Kerberos должен учитывать ограничения входа пользователей.",
+    "recommendation": "Включите опцию Enforce user logon restrictions на всех КД.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Kerberos Policy → Enforce user logon restrictions.",
+    "alt_policies": [
+      "Kerberos: обеспечивать ограничения входа пользователя"
+    ]
+  },
+  {
+    "id": "LSA.Protection",
+    "policy": "Configure LSASS to run as a protected process",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "LSASS без RunAsPPL уязвим для извлечения секретов (LSA Secrets, Kerberos Tickets).",
+    "recommendation": "Включите RunAsPPL для LSASS на всех критичных системах.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → System → LSA → «Configure LSASS to run as a protected process» → Enabled или реестр HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa → RunAsPPL=1.",
+    "alt_policies": [
+      "Настройка LSASS для запуска как защищенного процесса"
+    ]
+  },
+  {
+    "id": "SMB_SIGN_SERVER",
+    "policy": "Microsoft network server: Digitally sign communications (always)",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "SMB",
+    "notes": "Подпись SMB защищает от подмены трафика между клиентом и сервером.",
+    "recommendation": "Принудительно включите подпись на стороне сервера.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Microsoft network server: Digitally sign communications (always).",
+    "alt_policies": [
+      "Сеть Microsoft: всегда выполнять цифровую подпись сообщений (сервер)"
+    ]
+  },
+  {
+    "id": "SMB_SIGN_CLIENT",
+    "policy": "Microsoft network client: Digitally sign communications (always)",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "SMB",
+    "notes": "Клиент SMB тоже должен проверять подпись сообщений.",
+    "recommendation": "Включите подпись на стороне клиентов сети Microsoft.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Microsoft network client: Digitally sign communications (always).",
+    "alt_policies": [
+      "Клиент сети Microsoft: всегда выполнять цифровую подпись сообщений (клиент)"
+    ]
+  },
+  {
+    "id": "SMB_INSECURE_GUEST",
+    "policy": "Enable insecure guest logons",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "SMB",
+    "notes": "Небезопасные гостевые входы позволяют обходить аутентификацию SMB.",
+    "recommendation": "Запретите insecure guest logons для рабочих станций и серверов.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Network → Lanman Workstation → Enable insecure guest logons → Disabled.",
+    "alt_policies": [
+      "Разрешить небезопасные гостевые входы"
+    ]
+  },
+  {
+    "id": "SMB_V1_DISABLE",
+    "policy": "SMB 1.0/CIFS: Enabled",
+    "expected_regex": [
+      "(?i)(disabled|отключ|0x?0)"
+    ],
+    "severity": "Critical",
+    "category": "SMB",
+    "notes": "SMBv1 содержит критические уязвимости и должен быть отключён.",
+    "recommendation": "Удалите компонент SMB 1.0/CIFS и установите значение Enabled=0 в реестре.",
+    "fix": "Control Panel → Turn Windows features on or off → SMB 1.0/CIFS; Registry HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\\SMB1=0.",
+    "alt_policies": [
+      "SMB 1.0/CIFS: включено"
+    ]
+  },
+  {
+    "id": "ANON_SAM_ENUM",
+    "policy": "Network access: Do not allow anonymous enumeration of SAM accounts",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Анонимное перечисление SAM облегчает разведку злоумышленнику.",
+    "recommendation": "Разрешите доступ только аутентифицированным пользователям.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Network access: Do not allow anonymous enumeration of SAM accounts.",
+    "alt_policies": [
+      "Сетевой доступ: запрещать перечисление учетных записей SAM анонимными пользователями"
+    ]
+  },
+  {
+    "id": "ANON_SAM_SHARES_ENUM",
+    "policy": "Network access: Do not allow anonymous enumeration of SAM accounts and shares",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Анонимный просмотр учётных записей и ресурсов повышает риск бокового перемещения.",
+    "recommendation": "Запретите анонимный доступ к SAM и shared-папкам.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Do not allow anonymous enumeration of SAM accounts and shares.",
+    "alt_policies": [
+      "Сетевой доступ: запрещать перечисление учетных записей и общих ресурсов SAM анонимными пользователями"
+    ]
+  },
+  {
+    "id": "ANON_SID_NAME",
+    "policy": "Network access: Allow anonymous SID/Name translation",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Перевод SID без аутентификации раскрывает структуру домена.",
+    "recommendation": "Отключите Allow anonymous SID/Name translation.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Network access: Allow anonymous SID/Name translation.",
+    "alt_policies": [
+      "Сетевой доступ: разрешить анонимное сопоставление SID/имени"
+    ]
+  },
+  {
+    "id": "RPC_RESTRICT_REMOTE_SAM",
+    "policy": "Network access: Restrict clients allowed to make remote calls to SAM",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Security Options",
+    "notes": "Без ограничения удалённых вызовов SAM возможен сбор данных об учетках.",
+    "recommendation": "Включите политику и оставьте в списке только безопасные группы (Administrators, Authenticated Users).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Network access: Restrict clients allowed to make remote calls to SAM.",
+    "alt_policies": [
+      "Сетевой доступ: ограничить клиентов, которым разрешено выполнять удалённые вызовы SAM"
+    ]
+  },
+  {
+    "id": "WINRM_BASIC_DISABLED",
+    "policy": "Allow Basic authentication",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "Medium",
+    "category": "WinRM",
+    "notes": "Basic-аутентификация в WinRM передаёт пароль в удобном для перехвата виде.",
+    "recommendation": "Отключите Basic и используйте Kerberos/Certificate auth.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows Remote Management (WinRM) Client/Service → Allow Basic authentication → Disabled.",
+    "alt_policies": [
+      "Разрешить базовую проверку подлинности"
+    ]
+  },
+  {
+    "id": "WINRM_UNENCRYPTED_DISABLED",
+    "policy": "Allow unencrypted traffic",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "WinRM",
+    "notes": "Нешифрованный WinRM позволяет перехватывать команды и учётные данные.",
+    "recommendation": "Запретите незашифрованный трафик и используйте HTTPS/WinRM over TLS.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows Remote Management (WinRM) Client/Service → Allow unencrypted traffic → Disabled.",
+    "alt_policies": [
+      "Разрешить незашифрованный трафик"
+    ]
+  },
+  {
+    "id": "Audit.AccountLogon",
+    "policy": "Audit account logon events",
+    "expected_regex": [
+      "(?i)(?=.*(success|успех))(?=.*(failure|отказ))"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Без логирования входов пользователей расследовать компрометацию практически невозможно.",
+    "recommendation": "Включите Success и Failure для Audit account logon events.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Account Logon → Audit Account Logon → Success и Failure.",
+    "alt_policies": [
+      "Аудит входа в учетную запись"
+    ]
+  },
+  {
+    "id": "Audit.AccountManagement",
+    "policy": "Audit account management",
+    "expected_regex": [
+      "(?i)(?=.*(success|успех))(?=.*(failure|отказ))"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Изменения учетных записей должны фиксироваться для последующего расследования.",
+    "recommendation": "Включите Success и Failure для Audit account management.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Account Management → Audit Account Management → Success и Failure.",
+    "alt_policies": [
+      "Аудит управления учетными записями"
+    ]
+  },
+  {
+    "id": "Audit.PrivilegeUse",
+    "policy": "Audit privilege use",
+    "expected_regex": [
+      "(?i)(success|успех)"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Использование чувствительных привилегий (SeDebugPrivilege и др.) должно фиксироваться минимум по Success.",
+    "recommendation": "Включите Success (рекомендуется Success и Failure) для Audit privilege use.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Detailed Tracking → Audit Privilege Use → как минимум Success.",
+    "alt_policies": [
+      "Аудит использования привилегий"
+    ]
+  },
+  {
+    "id": "Audit.ProcessTracking",
+    "policy": "Audit process tracking",
+    "expected_regex": [
+      "(?i)(success|успех)"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Отслеживание процессов нужно для видимости запуска подозрительных программ.",
+    "recommendation": "Включите как минимум Success для Audit process tracking.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Detailed Tracking → Audit Process Creation → Success (и Failure при необходимости).",
+    "alt_policies": [
+      "Аудит отслеживания процессов"
+    ]
+  },
+  {
+    "id": "Audit.SecuritySystem",
+    "policy": "Audit security system extension",
+    "expected_regex": [
+      "(?i)(?=.*(success|успех))(?=.*(failure|отказ))"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "События расширения системы безопасности фиксируют операции LSASS/SSPI и критичны для расследований.",
+    "recommendation": "Включите Success и Failure для Audit security system extension.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → System → Audit Security System Extension → Success и Failure.",
+    "alt_policies": [
+      "Аудит расширения системы безопасности"
+    ]
+  },
+  {
+    "id": "DEFENDER.AV.Enabled",
+    "policy": "Turn off Microsoft Defender Antivirus",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "Defender",
+    "notes": "Антивирус должен быть включен на серверах и рабочих станциях.",
+    "recommendation": "Убедитесь, что параметр выключения Defender установлен в Disabled.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → Turn off Microsoft Defender Antivirus → Disabled.",
+    "alt_policies": [
+      "Отключить Microsoft Defender Antivirus",
+      "Отключить антивирус Microsoft Defender"
+    ]
+  },
+  {
+    "id": "DEFENDER.RTP.Enabled",
+    "policy": "Turn on real-time protection",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Defender",
+    "notes": "Защита в реальном времени должна быть включена.",
+    "recommendation": "Включите Real-time protection.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → Real-time Protection → Turn on real-time protection → Enabled.",
+    "alt_policies": [
+      "Включить защиту в реальном времени"
+    ]
+  },
+  {
+    "id": "DEFENDER.BehaviorMonitoring.Enabled",
+    "policy": "Turn on behavior monitoring",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Defender",
+    "notes": "Поведенческий анализ повышает эффективность обнаружения угроз.",
+    "recommendation": "Включите Behavior Monitoring.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → Real-time Protection → Turn on behavior monitoring → Enabled.",
+    "alt_policies": [
+      "Включить мониторинг поведения"
+    ]
+  },
+  {
+    "id": "DEFENDER.IOAV.Enabled",
+    "policy": "Scan all downloaded files and attachments",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Defender",
+    "notes": "Проверка загружаемых файлов снижает риск заражений.",
+    "recommendation": "Включите проверку загружаемых файлов и вложений.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → Scan all downloaded files and attachments → Enabled.",
+    "alt_policies": [
+      "Проверять все загружаемые файлы и вложения"
+    ]
+  },
+  {
+    "id": "DEFENDER.PUA.Enabled",
+    "policy": "Configure detection for potentially unwanted applications",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Defender",
+    "notes": "Включение PUA снижает риск серых инсталляторов и адварей.",
+    "recommendation": "Включите детектирование потенциально нежелательных приложений.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → Configure detection for potentially unwanted applications → Enabled.",
+    "alt_policies": [
+      "Настроить обнаружение потенциально нежелательных приложений"
+    ]
+  },
+  {
+    "id": "ASR.Configured",
+    "policy": "Configure Attack Surface Reduction rules",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "ASR",
+    "notes": "Минимум — правила ASR должны быть настроены и включены.",
+    "recommendation": "Включите и настройте правила ASR (Block/Audit по политике).",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → Microsoft Defender Exploit Guard → Attack Surface Reduction → Configure Attack Surface Reduction rules → Enabled.",
+    "alt_policies": [
+      "Настроить правила уменьшения поверхности атаки (ASR)"
+    ]
+  },
+  {
+    "id": "FIREWALL.ProtectAllConnections",
+    "policy": "Windows Defender Firewall: Protect all network connections",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "Firewall",
+    "notes": "Брандмауэр должен быть включен для всех профилей.",
+    "recommendation": "Включите защиту всех сетевых подключений.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Windows Defender Firewall with Advanced Security → Properties → включить Firewall для всех профилей.",
+    "alt_policies": [
+      "Брандмауэр Windows Defender: защищать все сетевые подключения"
+    ]
+  },
+  {
+    "id": "LAPS.Enable",
+    "policy": "Enable local admin password management",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "LAPS",
+    "notes": "LAPS снижает риск компрометации локальных администраторов.",
+    "recommendation": "Включите управление паролями локальных администраторов.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → System → LAPS → Enable local admin password management → Enabled.",
+    "alt_policies": [
+      "Включить управление паролями локальных администраторов"
+    ]
+  },
+  {
+    "id": "LAPS.PasswordLength",
+    "policy": "Password Settings: Password length",
+    "expected": [
+      "14"
+    ],
+    "severity": "High",
+    "category": "LAPS",
+    "notes": "Слишком короткий пароль снижает стойкость.",
+    "recommendation": "Установите длину пароля не менее 14 символов.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → System → LAPS → Password Settings: Password length → 14+.",
+    "compare": {
+      "type": "int_min",
+      "value": 14
+    },
+    "desired_text": "≥ 14",
+    "alt_policies": [
+      "Параметры пароля: длина пароля"
+    ]
+  },
+  {
+    "id": "LAPS.PasswordComplexity",
+    "policy": "Password Settings: Password complexity",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "LAPS",
+    "notes": "Сложность пароля обязательна для LAPS.",
+    "recommendation": "Включите сложность пароля.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → System → LAPS → Password Settings: Password complexity → Enabled.",
+    "alt_policies": [
+      "Параметры пароля: сложность пароля"
+    ]
+  },
+  {
+    "id": "RDP.NLA.Enabled",
+    "policy": "Require user authentication for remote connections by using Network Level Authentication",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "RDP",
+    "notes": "NLA снижает риск атак на RDP.",
+    "recommendation": "Включите обязательную аутентификацию на уровне сети.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Remote Desktop Services → Remote Desktop Session Host → Security → Require user authentication for remote connections by using Network Level Authentication → Enabled.",
+    "alt_policies": [
+      "Требовать проверку подлинности пользователя для удаленных подключений с использованием NLA"
+    ]
+  },
+  {
+    "id": "RDP.Encryption.High",
+    "policy": "Set client connection encryption level",
+    "expected": [
+      "High",
+      "Высокий"
+    ],
+    "severity": "Medium",
+    "category": "RDP",
+    "notes": "Высокий уровень шифрования снижает риск перехвата.",
+    "recommendation": "Установите уровень шифрования High.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Remote Desktop Services → Remote Desktop Session Host → Security → Set client connection encryption level → High.",
+    "alt_policies": [
+      "Уровень шифрования соединения клиента"
+    ]
+  },
+  {
+    "id": "CREDGUARD.Enabled",
+    "policy": "Turn on Virtualization Based Security",
+    "expected_regex": [
+      "(?i)(?=.*enabled)(?=.*credential guard)",
+      "(?i)(?=.*включено)(?=.*credential guard)",
+      "(?i)(?=.*включено)(?=.*защита учетных данных)"
+    ],
+    "severity": "High",
+    "category": "CredGuard",
+    "notes": "Credential Guard защищает секреты LSASS.",
+    "recommendation": "Включите VBS и Credential Guard (желательно с UEFI lock).",
+    "fix": "GPO → Computer Configuration → Administrative Templates → System → Device Guard → Turn on Virtualization Based Security → Enabled + Credential Guard.",
+    "alt_policies": [
+      "Включить виртуализационную безопасность (VBS)"
+    ]
+  },
+  {
+    "id": "PS.ScriptBlockLogging",
+    "policy": "Turn on PowerShell Script Block Logging",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "PowerShell",
+    "notes": "Логирование Script Block критично для расследований.",
+    "recommendation": "Включите Script Block Logging.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows PowerShell → Turn on PowerShell Script Block Logging → Enabled.",
+    "alt_policies": [
+      "Включить ведение журнала блоков сценариев PowerShell"
+    ]
+  },
+  {
+    "id": "PS.ModuleLogging",
+    "policy": "Turn on Module Logging",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "PowerShell",
+    "notes": "Логирование модулей помогает видеть загрузку подозрительных модулей.",
+    "recommendation": "Включите Module Logging.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows PowerShell → Turn on Module Logging → Enabled.",
+    "alt_policies": [
+      "Включить ведение журнала модулей PowerShell"
+    ]
+  },
+  {
+    "id": "PS.Transcription",
+    "policy": "Turn on PowerShell Transcription",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "PowerShell",
+    "notes": "Транскрипция повышает полноту журналирования PowerShell.",
+    "recommendation": "Включите PowerShell Transcription и задайте защищённый путь хранения.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows PowerShell → Turn on PowerShell Transcription → Enabled.",
+    "alt_policies": [
+      "Включить транскрипцию PowerShell"
+    ]
+  },
+  {
+    "id": "TLS.CipherSuiteOrder.Configured",
+    "policy": "SSL Cipher Suite Order",
+    "expected_regex": [
+      "(?i)\\S+"
+    ],
+    "severity": "Medium",
+    "category": "TLS",
+    "notes": "Явно заданный порядок шифров снижает риск слабых наборов.",
+    "recommendation": "Задайте безопасный порядок шифров TLS для Schannel.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Network → SSL Configuration Settings → SSL Cipher Suite Order.",
+    "alt_policies": [
+      "Порядок набора шифров SSL"
+    ]
+  },
+  {
+    "id": "PRINT.PointAndPrint.Restrictions",
+    "policy": "Point and Print Restrictions",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "PrintNightmare",
+    "notes": "Ограничение Point and Print снижает риск уязвимостей печати.",
+    "recommendation": "Включите Point and Print Restrictions и ограничьте доверенные серверы.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Printers → Point and Print Restrictions → Enabled.",
+    "alt_policies": [
+      "Ограничения Point and Print"
+    ]
+  },
+  {
+    "id": "PRINT.PackagePointAndPrint.ApprovedServers",
+    "policy": "Package Point and print - Approved servers",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "High",
+    "category": "PrintNightmare",
+    "notes": "Используйте список доверенных серверов печати.",
+    "recommendation": "Включите Approved servers и укажите доверенные узлы.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Printers → Package Point and print - Approved servers → Enabled.",
+    "alt_policies": [
+      "Пакетный Point and Print - утвержденные серверы"
+    ]
+  },
+  {
+    "id": "PRINT.Spooler.ClientConnections",
+    "policy": "Allow Print Spooler to accept client connections",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "PrintNightmare",
+    "notes": "Отключите на серверах, где не требуется печать.",
+    "recommendation": "Выключите при отсутствии роли сервера печати.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Printers → Allow Print Spooler to accept client connections → Disabled.",
+    "alt_policies": [
+      "Разрешить службе диспетчера печати принимать подключения клиентов"
+    ]
+  },
+  {
+    "id": "WU.ConfigureAutomaticUpdates",
+    "policy": "Configure Automatic Updates",
+    "expected": [
+      "4 - Auto download and schedule the install"
+    ],
+    "severity": "High",
+    "category": "Windows Update",
+    "notes": "Автоматическая загрузка и установка снижает окно уязвимости.",
+    "recommendation": "Установите режим 4 (Auto download and schedule the install).",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows Update → Configure Automatic Updates → 4.",
+    "compare": {
+      "type": "int_in",
+      "values": [
+        4
+      ]
+    },
+    "desired_text": "4 - Auto download and schedule the install",
+    "alt_policies": [
+      "Настроить автоматическое обновление"
+    ]
+  },
+  {
+    "id": "WU.NoAutoRestart",
+    "policy": "No auto-restart with logged on users for scheduled automatic updates installations",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "Windows Update",
+    "notes": "Избегайте неожиданной перезагрузки рабочих станций.",
+    "recommendation": "Включите запрет авто-перезапуска при активной сессии.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows Update → No auto-restart with logged on users for scheduled automatic updates installations → Enabled.",
+    "alt_policies": [
+      "Запретить автоматический перезапуск при входе пользователя"
+    ]
+  },
+  {
+    "id": "WU.WSUS.Location",
+    "policy": "Specify intranet Microsoft update service location",
+    "expected_regex": [
+      "(?i)http|https"
+    ],
+    "severity": "Medium",
+    "category": "Windows Update",
+    "notes": "Для централизованного патч-менеджмента обычно используется WSUS.",
+    "recommendation": "Укажите адрес сервера WSUS при централизованном обновлении.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Windows Update → Specify intranet Microsoft update service location.",
+    "alt_policies": [
+      "Указать расположение службы обновления Microsoft во внутренней сети"
+    ]
+  },
+  {
+    "id": "GPO.SecurityFiltering.AuthenticatedUsers",
+    "patterns": [
+      "Security Filtering[\\s\\S]*?NT AUTHORITY\\\\Authenticated Users[\\s\\S]*?<td>(Yes|No)</td>",
+      "Фильтрация безопасности[\\s\\S]*?NT AUTHORITY\\\\Authenticated Users[\\s\\S]*?<td>(Да|Нет)</td>"
+    ],
+    "expected": [
+      "No",
+      "Нет"
+    ],
+    "severity": "Medium",
+    "category": "GPO Permissions",
+    "notes": "Рекомендуется избегать применения чувствительных GPO ко всем аутентифицированным пользователям.",
+    "recommendation": "Убедитесь, что Authenticated Users имеет только Read (без Apply Group Policy) там, где это требуется.",
+    "fix": "GPMC → Security Filtering → убрать Apply Group Policy для Authenticated Users, оставить Read при необходимости.",
+    "desired_text": "Apply Group Policy: No",
+    "normalize": "lower_ws"
+  },
+  {
+    "id": "LOCKOUT.Duration",
+    "policy": "Account lockout duration",
+    "expected": [
+      "15 minutes",
+      "15 минут",
+      "30 minutes",
+      "30 минут"
+    ],
+    "severity": "Medium",
+    "category": "Account Lockout",
+    "notes": "Рекомендуемая длительность блокировки 15–30 минут (минимизация перебора и DoS).",
+    "recommendation": "Установите 15–30 минут (или по политике).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Account Lockout Policy → Account lockout duration.",
+    "compare": {
+      "type": "int_range",
+      "min": 15,
+      "max": 30
+    },
+    "desired_text": "15–30 minutes",
+    "alt_policies": [
+      "Длительность блокировки учетной записи"
+    ],
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "LOCKOUT.ResetCounter",
+    "policy": "Reset account lockout counter after",
+    "expected": [
+      "15 minutes",
+      "15 минут",
+      "30 minutes",
+      "30 минут"
+    ],
+    "severity": "Medium",
+    "category": "Account Lockout",
+    "notes": "Сброс счетчика блокировок должен быть 15–30 минут.",
+    "recommendation": "Установите 15–30 минут (или по политике).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Account Lockout Policy → Reset account lockout counter after.",
+    "compare": {
+      "type": "int_range",
+      "min": 15,
+      "max": 30
+    },
+    "desired_text": "15–30 minutes",
+    "alt_policies": [
+      "Сброс счетчика блокировок через"
+    ],
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "PASSWORD.MaxAge",
+    "policy": "Maximum password age",
+    "expected": [
+      "30 days",
+      "60 days",
+      "90 days",
+      "30 дней",
+      "60 дней",
+      "90 дней"
+    ],
+    "severity": "Medium",
+    "category": "Password Policy",
+    "notes": "Слишком большой срок повышает риск компрометации.",
+    "recommendation": "Установите 30–90 дней (по политике).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Maximum password age.",
+    "compare": {
+      "type": "int_range",
+      "min": 30,
+      "max": 90
+    },
+    "desired_text": "30–90 days",
+    "alt_policies": [
+      "Максимальный срок действия пароля"
+    ],
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "PASSWORD.MinAge",
+    "policy": "Minimum password age",
+    "expected": [
+      "1 days",
+      "1 day",
+      "1 день",
+      "1 дн"
+    ],
+    "severity": "Low",
+    "category": "Password Policy",
+    "notes": "Минимум 1 день предотвращает быстрые смены для обхода истории.",
+    "recommendation": "Установите минимум 1 день (или по политике).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Minimum password age.",
+    "compare": {
+      "type": "int_min",
+      "value": 1
+    },
+    "desired_text": "≥ 1 day",
+    "alt_policies": [
+      "Минимальный срок действия пароля"
+    ],
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "PASSWORD.ReversibleEncryption",
+    "policy": "Store passwords using reversible encryption",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "Password Policy",
+    "notes": "Хранение паролей в обратимом виде критично снижает безопасность.",
+    "recommendation": "Отключите хранение паролей в обратимом виде.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Account Policies → Password Policy → Store passwords using reversible encryption → Disabled.",
+    "alt_policies": [
+      "Хранить пароли с использованием обратимого шифрования"
+    ],
+    "scope": "domain_password_policy"
+  },
+  {
+    "id": "NTLM.Incoming.Restrict",
+    "policy": "Network security: Restrict NTLM: Incoming NTLM traffic",
+    "expected": [
+      "Deny all",
+      "Deny all accounts",
+      "Audit all",
+      "Audit all accounts",
+      "Запретить весь",
+      "Аудит всего"
+    ],
+    "severity": "High",
+    "category": "Аутентификация",
+    "notes": "Ограничение входящего NTLM снижает риск relay/legacy.",
+    "recommendation": "Установите Deny all accounts или Audit all accounts (поэтапно).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Restrict NTLM: Incoming NTLM traffic.",
+    "alt_policies": [
+      "Сетевая безопасность: ограничения NTLM: входящий NTLM-трафик"
+    ]
+  },
+  {
+    "id": "NTLM.DC.Incoming.Restrict",
+    "policy": "Domain controller: Restrict NTLM: Incoming NTLM traffic",
+    "expected": [
+      "Deny all",
+      "Deny all accounts",
+      "Audit all",
+      "Audit all accounts",
+      "Запретить весь",
+      "Аудит всего"
+    ],
+    "severity": "High",
+    "category": "Аутентификация",
+    "notes": "Ограничение входящего NTLM на КД снижает риск relay.",
+    "recommendation": "Установите Deny all accounts или Audit all accounts (поэтапно).",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Domain controller: Restrict NTLM: Incoming NTLM traffic.",
+    "alt_policies": [
+      "Контроллер домена: ограничения NTLM: входящий NTLM-трафик"
+    ]
+  },
+  {
+    "id": "WDigest.Disable",
+    "policy": "Network security: WDigest Authentication",
+    "expected": [
+      "Disabled",
+      "Отключено"
+    ],
+    "severity": "High",
+    "category": "Аутентификация",
+    "notes": "WDigest хранит пароли в памяти в открытом виде (legacy риск).",
+    "recommendation": "Отключите WDigest Authentication.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Network security: WDigest Authentication → Disabled.",
+    "alt_policies": [
+      "Сетевая безопасность: аутентификация WDigest"
+    ]
+  },
+  {
+    "id": "AUDIT.Logon",
+    "policy": "Audit logon",
+    "expected_regex": [
+      "(?i)(?=.*(success|успех))(?=.*(failure|отказ))"
+    ],
+    "severity": "High",
+    "category": "Audit",
+    "notes": "Логирование успешных/неуспешных входов критично для расследований.",
+    "recommendation": "Включите Success и Failure для Audit logon.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Logon/Logoff → Audit Logon → Success и Failure.",
+    "alt_policies": [
+      "Аудит входа в систему"
+    ]
+  },
+  {
+    "id": "AUDIT.Logoff",
+    "policy": "Audit logoff",
+    "expected_regex": [
+      "(?i)(?=.*(success|успех))"
+    ],
+    "severity": "Medium",
+    "category": "Audit",
+    "notes": "Фиксация завершения сессий полезна для расследований.",
+    "recommendation": "Включите Success для Audit logoff.",
+    "fix": "GPO → Computer Configuration → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Logon/Logoff → Audit Logoff → Success.",
+    "alt_policies": [
+      "Аудит выхода из системы"
+    ]
+  },
+  {
+    "id": "DEFENDER.CloudDelivered",
+    "policy": "Turn on cloud-delivered protection",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "Defender",
+    "notes": "Облачная защита повышает качество детекта.",
+    "recommendation": "Включите cloud-delivered protection.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → MAPS → Turn on cloud-delivered protection → Enabled.",
+    "alt_policies": [
+      "Включить облачную защиту"
+    ]
+  },
+  {
+    "id": "DEFENDER.FirstSight",
+    "policy": "Configure block at first sight",
+    "expected": [
+      "Enabled",
+      "Включено"
+    ],
+    "severity": "Medium",
+    "category": "Defender",
+    "notes": "Block at first sight повышает детект 0-day (требует облачной защиты).",
+    "recommendation": "Включите Block at first sight (при использовании Defender).",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → MAPS → Configure block at first sight → Enabled.",
+    "alt_policies": [
+      "Настроить блокировку при первом обнаружении"
+    ]
+  },
+  {
+    "id": "DEFENDER.SampleSubmission",
+    "policy": "Send file samples when further analysis is required",
+    "expected": [
+      "Send safe samples",
+      "Отправлять безопасные образцы"
+    ],
+    "severity": "Low",
+    "category": "Defender",
+    "notes": "Автоматическая отправка образцов повышает качество защиты.",
+    "recommendation": "Включите отправку безопасных образцов.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → MAPS → Send file samples when further analysis is required → Send safe samples automatically.",
+    "alt_policies": [
+      "Отправка образцов файлов при необходимости анализа"
+    ]
+  },
+  {
+    "id": "DEFENDER.CFA",
+    "policy": "Configure Controlled folder access",
+    "expected_regex": [
+      "(?i)(enabled|audit|block|включено|аудит|блок)",
+      "(?i)protected"
+    ],
+    "severity": "Low",
+    "category": "Defender",
+    "notes": "CFA снижает риск криптовымогателей, но может влиять на совместимость.",
+    "recommendation": "Включите CFA в режиме Block или Audit (по политике).",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → Microsoft Defender Antivirus → Microsoft Defender Exploit Guard → Controlled Folder Access → Configure Controlled folder access.",
+    "alt_policies": [
+      "Настроить контролируемый доступ к папкам"
+    ]
+  },
+  {
+    "id": "BitLocker.Baseline",
+    "policy": "Choose drive encryption method and cipher strength",
+    "expected_regex": [
+      "(?i)(XTS-AES|XTS-256|XTS-128|XTS AES)",
+      "(?i)xts"
+    ],
+    "severity": "Medium",
+    "category": "BitLocker",
+    "notes": "BitLocker рекомендуется включать для рабочих станций/ноутбуков (если в зоне ответственности).",
+    "recommendation": "Задайте XTS-AES (128/256) и включите BitLocker по политике.",
+    "fix": "GPO → Computer Configuration → Administrative Templates → Windows Components → BitLocker Drive Encryption → Choose drive encryption method and cipher strength.",
+    "alt_policies": [
+      "Выбор метода шифрования диска и стойкости шифра"
+    ]
+  }
+]

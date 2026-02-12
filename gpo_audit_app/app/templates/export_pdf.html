@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Export PDF - {{ run.name }}</title>
+  <style>
+    body { font-family: "IBM Plex Sans", "Segoe UI", "Noto Sans", sans-serif; margin: 20px; color: #0f172a; }
+    h1, h2 { margin: 0 0 10px; letter-spacing: -0.01em; }
+    .meta { margin-bottom: 16px; color: #475569; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+    th, td { border: 1px solid #d7e0ea; padding: 6px; vertical-align: top; word-break: break-word; text-align: left; }
+    th { background: #f4f8fc; }
+    .noprint { margin-bottom: 14px; }
+    .btn { display: inline-block; padding: 8px 12px; border: 1px solid #93c5fd; color: #1e3a8a; text-decoration: none; border-radius: 8px; margin-right: 8px; background: #eff6ff; }
+    .btn:hover { background: #dbeafe; }
+    @media print {
+      .noprint { display: none; }
+      body { margin: 0; }
+      @page { margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="noprint">
+    <a href="#" class="btn" onclick="window.print(); return false;">Сохранить как PDF</a>
+    <a href="/runs/{{ run.id }}" class="btn">Назад к запуску</a>
+  </div>
+
+  <h1>GPO Audit - {{ run.name }}</h1>
+  <div class="meta">
+    <div><strong>Run ID:</strong> {{ run.id }}</div>
+    <div><strong>Дата запуска:</strong> {{ run.created_at }}</div>
+    <div><strong>Дата экспорта:</strong> {{ generated_at }}</div>
+    <div><strong>Тип:</strong> {% if kind == 'scope' %}Сводка по правилам{% else %}Детальные проверки{% endif %}</div>
+  </div>
+
+  {% if kind == 'scope' %}
+  <h2>Сводка по правилам</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Статус</th>
+        <th>Правило</th>
+        <th>Критичность</th>
+        <th>Scope</th>
+        <th>OK</th>
+        <th>Не ОК</th>
+        <th>Не найдено</th>
+        <th>Ни разу не найдено</th>
+        <th>Конфликт</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in scope_rows %}
+      <tr>
+        <td>{{ row.status }}</td>
+        <td>{{ row.rule_id }}</td>
+        <td>{{ row.severity }}</td>
+        <td>{{ row.scope }}</td>
+        <td>{{ row.scope_ok }}</td>
+        <td>{{ row.scope_issues }}</td>
+        <td>{{ row.scope_missing_display }}</td>
+        <td>{{ row.never_found }}</td>
+        <td>{{ row.conflict }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <h2>Детальные проверки</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Статус</th>
+        <th>Правило</th>
+        <th>Критичность</th>
+        <th>GPO</th>
+        <th>Найдено</th>
+        <th>Ожидалось</th>
+        <th>Что сделать</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in result_rows %}
+      <tr>
+        <td>{% if row.status == 'OK' %}Соответствует{% elif row.status == 'Не ОК' %}Неверно{% else %}Не задано{% endif %}</td>
+        <td>{{ row.rule_id }}</td>
+        <td>{{ row.severity }}</td>
+        <td>{{ row.gpo }}</td>
+        <td>{{ row.found }}</td>
+        <td>{{ row.expected_display }}</td>
+        <td>{{ row.fix or row.recommendation or row.notes }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <script>
+    window.addEventListener('load', () => {
+      setTimeout(() => window.print(), 300);
+    });
+  </script>
+</body>
+</html>

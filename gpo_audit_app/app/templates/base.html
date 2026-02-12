@@ -7,11 +7,17 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <header>
-    <div><a href="/">GPO Audit</a></div>
-    <nav><a href="/upload">Upload</a></nav>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><a href="/">GPO Audit</a></div>
+      <nav class="tabs">
+        <a href="/" class="tab{% if active_tab == 'runs' %} active{% endif %}">Запуски</a>
+        <a href="/upload" class="tab{% if active_tab == 'upload' %} active{% endif %}">Загрузка</a>
+        <a href="/help" class="tab{% if active_tab == 'help' %} active{% endif %}">Справка</a>
+      </nav>
+    </div>
   </header>
-  <main>
+  <main class="app-main">
     {% block content %}{% endblock %}
   </main>
 </body>

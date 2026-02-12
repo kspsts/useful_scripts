@@ -10,79 +10,110 @@
   </div>
 </div>
 
-<div class="card">
-  <h3>Фильтры</h3>
-  <form method="get" class="form-row">
-    <input type="text" name="status" placeholder="Status" value="{{ filters.status }}" />
-    <input type="text" name="severity" placeholder="Severity" value="{{ filters.severity }}" />
-    <input type="text" name="category" placeholder="Category" value="{{ filters.category }}" />
-    <input type="text" name="rule_id" placeholder="Rule ID" value="{{ filters.rule_id }}" />
-    <input type="text" name="gpo" placeholder="GPO" value="{{ filters.gpo }}" />
-    <button type="submit">Фильтровать</button>
+<section class="card">
+  <h3>Короткая сводка</h3>
+  <div class="grid">
+    <div class="stat bad">Неверная настройка: {{ summary.scope_status['Не ОК'] or 0 }}</div>
+    <div class="stat warn">Не задано: {{ summary.scope_status['Не найдено'] or 0 }}</div>
+    <div class="stat ok">Соответствует: {{ summary.scope_status['OK'] or 0 }}</div>
+    <div class="stat">Всего правил: {{ summary.scope_total }}</div>
+  </div>
+  <p class="muted">Неверная настройка: значение найдено, но не совпадает с ожидаемым. Не задано: правило не найдено в своей области применения.</p>
+</section>
+
+<section class="card">
+  <h3>Главная таблица</h3>
+  <p class="muted">Единый список для аудита и исправления.</p>
+  <form method="get" class="chips-row">
+    <input type="hidden" name="page" value="1" />
+    <input type="hidden" name="status" value="{{ filters.status }}" />
+    <input type="hidden" name="severity" value="{{ filters.severity }}" />
+    <input type="hidden" name="category" value="{{ filters.category }}" />
+    <input type="hidden" name="rule_id" value="{{ filters.rule_id }}" />
+    <input type="hidden" name="gpo" value="{{ filters.gpo }}" />
+    <input type="hidden" name="page_size" value="{{ filters.page_size }}" />
+    <label class="chip-toggle {% if filters.only_issues %}active{% endif %}">
+      <input type="checkbox" name="only_issues" value="1" {% if filters.only_issues %}checked{% endif %} />
+      Только проблемы
+    </label>
+    <label class="chip-toggle {% if filters.only_missing %}active{% endif %}">
+      <input type="checkbox" name="only_missing" value="1" {% if filters.only_missing %}checked{% endif %} />
+      Только не задано
+    </label>
+    <label class="chip-toggle {% if filters.critical_only %}active{% endif %}">
+      <input type="checkbox" name="critical_only" value="1" {% if filters.critical_only %}checked{% endif %} />
+      Только Critical/High
+    </label>
+    <label class="chip-toggle {% if filters.with_fix %}active{% endif %}">
+      <input type="checkbox" name="with_fix" value="1" {% if filters.with_fix %}checked{% endif %} />
+      Только с инструкцией
+    </label>
+    <button type="submit">Применить</button>
+    <a class="reset-link" href="/runs/{{ run.id }}">Сбросить</a>
+    <a
+      class="reset-link"
+      href="/runs/{{ run.id }}/export/pdf?kind=results&status={{ filters.status }}&severity={{ filters.severity }}&category={{ filters.category }}&rule_id={{ filters.rule_id }}&gpo={{ filters.gpo }}&only_issues={{ filters.only_issues }}&only_missing={{ filters.only_missing }}&critical_only={{ filters.critical_only }}&with_fix={{ filters.with_fix }}"
+    >
+      Экспорт PDF (текущий вид)
+    </a>
+    <a class="reset-link" href="/runs/{{ run.id }}/export/pdf?kind=scope">Экспорт PDF (scope)</a>
   </form>
-</div>
-
-<div class="card">
-  <h3>Сводка по правилам (scope)</h3>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Status</th>
-        <th>Rule</th>
-        <th>Severity</th>
-        <th>Scope</th>
-        <th>In</th>
-        <th>OK</th>
-        <th>Issues</th>
-        <th>Missing</th>
-        <th>Never</th>
-        <th>Conflict</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in scope %}
-      <tr>
-        <td><span class="badge {% if row.status == 'OK' %}ok{% elif row.status == 'Не ОК' %}bad{% else %}warn{% endif %}">{{ row.status }}</span></td>
-        <td>{{ row.rule_id }}</td>
-        <td>{{ row.severity }}</td>
-        <td>{{ row.scope }}</td>
-        <td>{{ row.scope_in }}</td>
-        <td>{{ row.scope_ok }}</td>
-        <td>{{ row.scope_issues }}</td>
-        <td>{{ row.scope_missing_display }}</td>
-        <td>{{ row.never_found }}</td>
-        <td>{{ row.conflict }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="card">
-  <h3>Результаты</h3>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Status</th>
-        <th>Severity</th>
-        <th>Rule</th>
-        <th>GPO</th>
-        <th>Found</th>
-        <th>Expected</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in results %}
-      <tr>
-        <td><span class="badge {% if row.status == 'OK' %}ok{% elif row.status == 'Не ОК' %}bad{% else %}warn{% endif %}">{{ row.status }}</span></td>
-        <td>{{ row.severity }}</td>
-        <td>{{ row.rule_id }}</td>
-        <td>{{ row.gpo }}</td>
-        <td>{{ row.found }}</td>
-        <td>{{ row.expected_display }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+  <div class="chips-row">
+    <span class="muted">Показано {{ results|length }} из {{ pagination.total_filtered }} строк.</span>
+    <label class="field-inline">
+      <span>Строк на странице</span>
+      <select onchange="window.location.href=this.value">
+        {% for size in [50,100,200,500] %}
+        <option value="/runs/{{ run.id }}?status={{ filters.status }}&severity={{ filters.severity }}&category={{ filters.category }}&rule_id={{ filters.rule_id }}&gpo={{ filters.gpo }}&only_issues={{ filters.only_issues }}&only_missing={{ filters.only_missing }}&critical_only={{ filters.critical_only }}&with_fix={{ filters.with_fix }}&page=1&page_size={{ size }}" {% if filters.page_size == size %}selected{% endif %}>
+          {{ size }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if pagination.has_prev %}
+    <a class="reset-link" href="/runs/{{ run.id }}?status={{ filters.status }}&severity={{ filters.severity }}&category={{ filters.category }}&rule_id={{ filters.rule_id }}&gpo={{ filters.gpo }}&only_issues={{ filters.only_issues }}&only_missing={{ filters.only_missing }}&critical_only={{ filters.critical_only }}&with_fix={{ filters.with_fix }}&page={{ pagination.prev_page }}&page_size={{ pagination.page_size }}">← Пред.</a>
+    {% endif %}
+    <span class="muted">Стр. {{ pagination.page }} / {{ pagination.page_count }}</span>
+    {% if pagination.has_next %}
+    <a class="reset-link" href="/runs/{{ run.id }}?status={{ filters.status }}&severity={{ filters.severity }}&category={{ filters.category }}&rule_id={{ filters.rule_id }}&gpo={{ filters.gpo }}&only_issues={{ filters.only_issues }}&only_missing={{ filters.only_missing }}&critical_only={{ filters.critical_only }}&with_fix={{ filters.with_fix }}&page={{ pagination.next_page }}&page_size={{ pagination.page_size }}">След. →</a>
+    {% endif %}
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="col-status">Статус</th>
+          <th class="col-rule">Правило</th>
+          <th class="col-severity">Критичность</th>
+          <th class="col-gpo">GPO</th>
+          <th class="col-found">Найдено</th>
+          <th class="col-expected">Ожидалось</th>
+          <th class="col-action">Что сделать</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in results %}
+        <tr class="row-{% if row.status == 'OK' %}ok{% elif row.status == 'Не ОК' %}issue{% else %}missing{% endif %}">
+          <td class="col-status">
+            <span class="badge {% if row.status == 'OK' %}ok{% elif row.status == 'Не ОК' %}bad{% else %}warn{% endif %}">
+              {% if row.status == 'OK' %}Соответствует{% elif row.status == 'Не ОК' %}Неверно{% else %}Не задано{% endif %}
+            </span>
+          </td>
+          <td class="col-rule">{{ row.rule_id }}</td>
+          <td class="col-severity">{{ row.severity }}</td>
+          <td class="col-gpo">{{ row.gpo }}</td>
+          <td class="col-found">{{ row.found }}</td>
+          <td class="col-expected">{{ row.expected_display }}</td>
+          <td class="col-action">{{ row.fix or row.recommendation or row.notes }}</td>
+        </tr>
+        {% endfor %}
+        {% if not results %}
+        <tr>
+          <td colspan="7" class="muted">Нет строк по текущим фильтрам.</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}

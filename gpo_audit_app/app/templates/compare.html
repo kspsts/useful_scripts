@@ -2,8 +2,8 @@
 {% block content %}
 <div class="card">
   <h2>Сравнение</h2>
-  <p>Run A: {{ run_a.id }} — {{ run_a.name }}</p>
-  <p>Run B: {{ run_b.id }} — {{ run_b.name }}</p>
+  <p><strong>Запуск A:</strong> {{ run_a.id }} — {{ run_a.name }}</p>
+  <p><strong>Запуск B:</strong> {{ run_b.id }} — {{ run_b.name }}</p>
 </div>
 
 <div class="card">
@@ -11,28 +11,30 @@
   {% if not changes %}
     <p class="muted">Нет изменений статусов.</p>
   {% else %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Rule</th>
-        <th>Severity</th>
-        <th>Category</th>
-        <th>From</th>
-        <th>To</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for c in changes %}
-      <tr>
-        <td>{{ c.rule_id }}</td>
-        <td>{{ c.severity }}</td>
-        <td>{{ c.category }}</td>
-        <td>{{ c.from }}</td>
-        <td>{{ c.to }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Правило</th>
+          <th>Критичность</th>
+          <th>Категория</th>
+          <th>Было</th>
+          <th>Стало</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in changes %}
+        <tr>
+          <td>{{ c.rule_id }}</td>
+          <td>{{ c.severity }}</td>
+          <td>{{ c.category }}</td>
+          <td>{{ c.from }}</td>
+          <td>{{ c.to }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 </div>
 {% endblock %}
